@@ -1,277 +1,761 @@
-# OpenCode AI Agents Configuration Repository
+# OpenCode AI Agents — Planning-First Multi-Tier Configuration
 
-This repository serves as a **central configuration hub** for AI agents that conform to the [OpenCode AI configuration schema](https://opencode.ai/config.json). It provides a single source of truth for agent definitions, allowing multiple sites and applications to share consistent agent configurations.
-
-## 📋 What This Repository Contains
-
-- **`opencode.json`**: The main configuration file defining AI agents with their capabilities, models, and permissions
-- **Schema Compliance**: All configurations follow the OpenCode AI schema standards
-- **Version Control**: Track changes to agent configurations over time
-- **Centralized Management**: Single location for maintaining agent definitions
-
-## 🤖 Available Agents
-
-The current configuration defines **eight specialized AI agents** organized into primary agents and subagents across three functional domains.
+This repository contains `opencode.json`: a single, opinionated agent configuration for [OpenCode AI](https://opencode.ai) that implements a **planning-first, multi-tier agent architecture**. It defines 10 specialized agents across 4 functional tiers — routing, planning, execution, and validation — designed to minimize cost while preserving quality at every decision point.
 
 ---
 
-## 🎯 Primary Agents (Entry Points)
+## Design Philosophy
 
-These agents serve as main entry points for different types of work:
+### Planning-First Execution
 
-### 1. **Coding Boss** (`coding-boss`)
-- **Purpose**: Routes coding tasks to junior/senior/architect engineers based on complexity and risk
-- **Mode**: Primary (main entry point for coding tasks)
-- **Model**: Claude Haiku 4.5 (2025-10-01)
-- **Permissions**: Read-only (routing and analysis only)
-- **Classification Logic**:
-  - **JUNIOR**: Local changes, low risk, ≤2 files, straightforward work
-  - **SENIOR**: Debugging, non-trivial refactors, multi-module tests, medium risk
-  - **ARCHITECT**: Architecture/API changes, security-sensitive, multi-module, migrations, high risk
-- **Best For**: Automatically routing coding requests to the appropriate engineering level
+The core insight behind this configuration is that **unplanned implementation is expensive to undo**. Before any file is touched, the system asks: is this task concrete and scoped enough to implement directly? If not, a dedicated planning agent runs first.
 
-### 2. **Documentation Router** (`docs`)
-- **Purpose**: Routes documentation requests to the appropriate specialized documentation subagent
-- **Mode**: Primary (main entry point for documentation tasks)
-- **Model**: Claude Haiku 4.5 (2025-10-01)
-- **Permissions**: Read-only (routing and analysis only)
-- **Best For**: Determining which documentation agent should handle specific requests
+This separation:
 
----
+- **Prevents scope creep** — the plan defines the boundary before a single line of code is written
+- **Enables cheap execution** — a validated plan can be handed to a lower-cost model with confidence
+- **Allows early escalation** — if the plan reveals unexpected complexity, routing can adjust before implementation begins
+- **Reduces rework** — reviewers receive a structured summary of what changed and why, not just a diff
 
-## 👨‍💼 Engineering Subagents
+### Model Tier Strategy
 
-These agents handle different levels of coding complexity and implementation:
+Four model tiers are used, selected on the principle: **use the cheapest model that can do the job correctly**.
 
-### 3. **Junior Engineer** (`junior`)
-- **Purpose**: Quick, cheap implementation of small scoped tasks with minimal risk
-- **Mode**: Subagent (works under coding-boss routing)
-- **Model**: Claude Haiku 4.5 (2024-01-01)
-- **Permissions**: Full write/edit access
-- **Guidelines**: Makes minimal, safe changes; prefers small diffs; adds tests when relevant
-- **Escalation**: Stops and recommends escalation to @senior if task expands beyond 2 files or discovers architectural risk
-- **Best For**: Bug fixes, small features, straightforward implementations
+| Tier | Model | Used For |
+|------|-------|----------|
+| **Standard** | `claude-sonnet-4-6` | Planning, routing decisions, review, senior implementation |
+| **Fast** | `claude-haiku-4-5` | Cheap routing (docs), narrow doc edits |
+| **Mini** | `gpt-5.1-codex-mini` | Trivial and localized code edits only |
+| **Codex** | `gpt-5.3-codex` | Primary implementation execution |
 
-### 4. **Senior Engineer** (`senior`)
-- **Purpose**: Robust solutions, refactors, debugging, and code reviews with attention to maintainability
-- **Mode**: Subagent (works under coding-boss routing)
-- **Model**: Claude Sonnet 4.6
-- **Permissions**: Full write/edit access
-- **Focus**: Correctness, maintainability, comprehensive tests, tradeoff explanations
-- **Escalation**: Recommends escalation to @architect for public API changes, security boundaries, or cross-service contracts
-- **Best For**: Complex bug fixes, refactors, multi-module changes, architectural reviews
+**Rationale by role:**
 
-### 5. **Architect** (`architect`)
-- **Purpose**: High-stakes design and cross-cutting system changes
-- **Mode**: Subagent (works under coding-boss routing)
-- **Model**: Claude Sonnet 4.6
-- **Permissions**: Read-only (design and planning focus)
-- **Approach**: Proposes plan first, then implements in safe steps with tests and rollback notes
-- **Focus**: System design, contracts, migration strategy, security, long-term maintainability
-- **Best For**: Architecture redesigns, security-sensitive changes, multi-service coordination, major migrations
-
-### 6. **Code Reviewer** (`code-reviewer`)
-- **Purpose**: Reviews code for best practices, security, performance, and maintainability
-- **Mode**: Subagent (works independently or under routing agents)
-- **Model**: Claude Sonnet 4.6
-- **Permissions**: Read-only (cannot write or edit files)
-- **Best For**: Code quality assessments, security audits, performance reviews, quality gates
+- **Routing agents** (`coding-boss`, `docs`) need just enough judgment to classify a task — haiku is sufficient for docs; sonnet is used for coding-boss because misrouting a non-trivial coding task is costlier than misrouting a docs task.
+- **Planning agents** (`planner`, `docs-planner`) require genuine reasoning over the codebase — sonnet is warranted.
+- **Execution agents** use code-optimized models. `gpt-5.1-codex-mini` handles trivial edits cheaply. `gpt-5.3-codex` handles the primary implementation workload.
+- **Validation agents** (`code-reviewer`, `docs-reviewer`, `agent-architect`) need judgment and nuance — sonnet throughout.
 
 ---
 
-## 📚 Documentation Subagents
+## Agent Reference
 
-These agents specialize in creating different types of documentation:
-
-### 7. **User Guide Writer** (`user-guide`)
-- **Purpose**: Creates end-user documentation like READMEs, tutorials, and usage guides
-- **Mode**: Subagent (works under docs routing agent)
-- **Model**: Claude Haiku 4.5 (2025-10-01)
-- **Permissions**: Full write/edit access
-- **Focus**: Clear, practical documentation avoiding implementation details
-- **Best For**: README files, getting started guides, user tutorials, API documentation, usage examples
-
-### 8. **Agent Architect** (`agent-architect`)
-- **Purpose**: Analyzes codebases and designs AGENTS.md files for multi-agent workflows
-- **Mode**: Subagent (works under docs routing agent)
-- **Model**: Claude Sonnet 4.6
-- **Permissions**: Read-only (design and analysis focus)
-- **Focus**: Agent role definition, delegation patterns, interaction guidelines, system design
-- **Best For**: Designing AGENTS.md documentation, multi-agent system architecture, workflow planning
+### Tier 1 — Routing Agents (Entry Points)
 
 ---
 
-## 🚀 Getting Started
+#### `coding-boss`
 
-### For Users
-1. **Reference the Configuration**: Point your OpenCode AI compatible application to this repository
-2. **Use Agent Names**: Reference agents by their key names (e.g., `coding-boss`, `docs`, `code-reviewer`)
-3. **Follow Schema**: Ensure your implementation supports the OpenCode AI configuration schema
-4. **Select Appropriate Agent**:
-   - Use `coding-boss` for coding tasks (it will route to the right engineering level)
-   - Use `docs` for documentation tasks (it will route to appropriate doc writers)
-   - Use `code-reviewer` directly for standalone code reviews
+> **Routes coding work by phase: planning, trivial implementation, normal implementation, and review**
 
-### For Developers
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/sven1103-agent/opencode-agents.git
-   cd opencode-agents
-   ```
+- **Model:** `claude-sonnet-4-6`
+- **Mode:** Primary (default entry point)
+- **Color:** `#BEEE62`
 
-2. **Validate Configuration**:
-   ```bash
-   # Ensure your JSON is valid
-   cat opencode.json | jq .
-   ```
+`coding-boss` is the default agent for all coding tasks. Its only job is to classify the incoming request and delegate — it never writes code itself.
 
-3. **Use in Your Application**:
-   ```javascript
-   // Example usage in a Node.js application
-   const config = require('./opencode.json');
-   const codingBoss = config.agent['coding-boss'];
-   const docsRouter = config.agent['docs'];
-   ```
+**Routing decision tree:**
 
-## 📁 Configuration Schema
+```
+Incoming coding task
+│
+├─ NOT implementation-ready?
+│    └─→ delegate to planner
+│
+├─ Implementation-ready AND trivial/localized?
+│    └─→ delegate to implementer-small
+│
+└─ Implementation-ready but non-trivial?
+     ├─→ delegate to implementer
+     └─→ after completion, delegate to code-reviewer
+```
 
-Each agent in the configuration follows this structure:
+**Implementation-ready** means ALL of the following are true:
+- The change is concrete and narrowly scoped
+- The affected subsystem or files are obvious
+- No architectural decision is required
+- No public API, schema, migration, security boundary, or cross-service contract is affected
+
+**Trivial/localized** (eligible for `implementer-small`) means:
+- Limited to one or two closely related files
+- Small mechanical change
+- No architecture or debugging involved
+
+**Permission boundaries:**
+
+```json
+"permission": {
+  "task": {
+    "*": "deny",
+    "planner": "allow",
+    "implementer-small": "allow",
+    "implementer": "allow",
+    "code-reviewer": "allow"
+  },
+  "write": "deny",
+  "edit": "deny"
+}
+```
+
+`coding-boss` operates on an explicit task allow-list. It cannot delegate to any agent not listed. It cannot write or edit files — it produces no artifacts of its own.
+
+---
+
+#### `docs`
+
+> **Routes documentation tasks with planner-first policy**
+
+- **Model:** `claude-haiku-4-5` (cheapest tier — routing logic is simple)
+- **Mode:** Primary
+- **Color:** `#D74E09`
+
+`docs` is the entry point for all documentation work. Like `coding-boss`, it never writes documentation itself — it classifies and delegates.
+
+**Planner-first policy:** Unless the request is a trivial wording fix, typo correction, or formatting cleanup with an obvious target file, `docs` routes to `docs-planner` first. File reading alone is not sufficient justification to skip planning — if understanding requires reading multiple files or synthesizing behavior, `docs-planner` must run first.
+
+**Routing decision tree:**
+
+```
+Incoming documentation task
+│
+├─ AGENTS.md or multi-agent workflow design?
+│    └─→ agent-architect
+│
+├─ Narrow, explicit, no synthesis needed?
+│    └─→ docs-writer-fast
+│
+└─ Everything else (architecture, onboarding, migration,
+   feature docs, multi-file synthesis)
+     └─→ docs-planner → (docs-writer-fast or docs-writer-pro)
+          └─→ docs-reviewer (for important docs)
+```
+
+**Permission boundaries:**
+
+```json
+"permission": {
+  "task": {
+    "*": "deny",
+    "docs-planner": "allow",
+    "docs-writer-fast": "allow",
+    "docs-writer-pro": "allow",
+    "docs-reviewer": "allow",
+    "agent-architect": "allow"
+  },
+  "write": "deny",
+  "edit": "deny"
+}
+```
+
+---
+
+### Tier 2 — Planning Agents
+
+---
+
+#### `planner`
+
+> **Produces structured implementation plans**
+
+- **Model:** `claude-sonnet-4-6`
+- **Mode:** Subagent
+
+`planner` analyzes the task and repository context and produces a structured execution plan. It **never edits files**. Its entire output is a `HANDOVER: IMPLEMENTATION PLAN` block (see [HANDOVER Format](#handover-format)).
+
+The plan includes: objective, scope, assumptions, constraints, likely affected files, step-by-step instructions, test strategy, acceptance criteria, risks, rollback notes, and escalation conditions.
+
+**Permission boundaries:**
+
+```json
+"permission": {
+  "write": "deny",
+  "edit": "deny",
+  "bash": "ask"
+}
+```
+
+`bash` is set to `ask` (not `allow`) because the planner may need to inspect the repository to understand structure, but should not run arbitrary commands without confirmation.
+
+---
+
+#### `docs-planner`
+
+> **Plans complex documentation**
+
+- **Model:** `claude-sonnet-4-6`
+- **Mode:** Subagent
+
+`docs-planner` researches the codebase, understands its structure and behavior, and produces a `HANDOVER: DOCS PLAN` block that specifies the audience, goal, files to create or update, document structure, examples to include, and which writer agent to use next.
+
+**When triggered vs. `docs-writer-fast` directly:**
+- Triggered when the task involves reading files to understand behavior, workflows, architecture, onboarding, migrations, or feature usage
+- `docs-writer-fast` is used directly only for narrowly scoped, self-evident changes
+
+**Permission boundaries:**
+
+```json
+"permission": {
+  "write": "deny",
+  "edit": "deny"
+}
+```
+
+---
+
+### Tier 3 — Execution Agents
+
+---
+
+#### `implementer-small`
+
+> **Cheap execution agent for trivial tasks**
+
+- **Model:** `gpt-5.1-codex-mini`
+- **Mode:** Subagent
+
+`implementer-small` is the cost-optimized path for small, localized edits. It uses the cheapest capable code model to minimize cost on work that doesn't require heavy reasoning.
+
+**Rules:**
+- Only performs edits limited to one or two closely related files
+- Prefers tiny diffs
+- Does not modify APIs, schemas, or security boundaries
+
+**Self-escalation:** If scope unexpectedly expands during implementation, `implementer-small` stops and escalates to `@implementer` rather than proceeding beyond its mandate.
+
+**Output:** A `HANDOVER: REVIEW SUMMARY` block.
+
+**Permission boundaries:**
+
+```json
+"permission": {
+  "write": "allow",
+  "edit": "allow",
+  "bash": "allow"
+}
+```
+
+---
+
+#### `implementer`
+
+> **Primary implementation agent**
+
+- **Model:** `gpt-5.3-codex`
+- **Mode:** Subagent
+
+`implementer` is the main execution engine for non-trivial coding tasks. It requires a `HANDOVER: IMPLEMENTATION PLAN` as input and follows it strictly.
+
+Before editing, it restates: the objective, files it expects to modify, and its execution plan. If the plan is invalid or contradictory, it escalates back to `@planner` rather than improvising.
+
+**Output:** A `HANDOVER: REVIEW SUMMARY` block.
+
+**Permission boundaries:**
+
+```json
+"permission": {
+  "write": "allow",
+  "edit": "allow",
+  "bash": "allow"
+}
+```
+
+> **Note:** `implementer` uses `gpt-5.3-codex`, not a Claude model. This is intentional — Codex models are optimized for code generation and execution.
+
+---
+
+#### `docs-writer-fast`
+
+> **Cheap documentation writer**
+
+- **Model:** `claude-haiku-4-5`
+- **Mode:** Subagent
+
+`docs-writer-fast` handles narrow, explicit documentation updates: short sections, small diffs, concrete examples. It is cost-optimized for straightforward work that doesn't require architectural synthesis.
+
+**When to use vs. `docs-writer-pro`:**
+- Use `docs-writer-fast` for: typo fixes, formatting cleanup, small section additions, minor rewrites with clear scope
+- Use `docs-writer-pro` for: comprehensive rewrites, architecture documentation, multi-file documentation overhauls, anything requiring high-quality prose and strong structure
+
+**Permission boundaries:**
+
+```json
+"permission": {
+  "write": "allow",
+  "edit": "allow"
+}
+```
+
+---
+
+#### `docs-writer-pro`
+
+> **High-quality documentation writer**
+
+- **Model:** `claude-sonnet-4-6`
+- **Mode:** Subagent
+
+`docs-writer-pro` produces high-quality, well-structured documentation following a `HANDOVER: DOCS PLAN`. It is used when the output demands clarity, depth, and careful organization — such as architecture guides, comprehensive README rewrites, or onboarding documentation.
+
+**Permission boundaries:**
+
+```json
+"permission": {
+  "write": "allow",
+  "edit": "allow"
+}
+```
+
+---
+
+### Tier 4 — Validation & Design Agents
+
+---
+
+#### `code-reviewer`
+
+> **Reviews implementation for quality and safety**
+
+- **Model:** `claude-sonnet-4-6`
+- **Mode:** Subagent
+
+`code-reviewer` receives a `HANDOVER: REVIEW SUMMARY` from an implementer and performs a structured review against four axes: correctness, security, maintainability, and test adequacy.
+
+**Output format:**
+
+```
+=== REVIEW RESULT ===
+Status: approve | needs changes
+
+Findings:
+- severity: high | medium | low
+  <finding description>
+
+Checks performed:
+- correctness
+- security
+- maintainability
+- test adequacy
+
+Recommended next step:
+=== END REVIEW RESULT ===
+```
+
+**Permission boundaries:**
+
+```json
+"permission": {
+  "write": "deny",
+  "edit": "deny",
+  "bash": "ask"
+}
+```
+
+`code-reviewer` never modifies files. It judges; it does not act.
+
+---
+
+#### `docs-reviewer`
+
+> **Reviews documentation quality**
+
+- **Model:** `claude-sonnet-4-6`
+- **Mode:** Subagent
+
+`docs-reviewer` reviews completed documentation for accuracy, clarity, and structure. It outputs a `DOCS REVIEW RESULT` block with an approve/needs-changes verdict and structured findings.
+
+**Permission boundaries:**
+
+```json
+"permission": {
+  "write": "deny",
+  "edit": "deny"
+}
+```
+
+---
+
+#### `agent-architect`
+
+> **Designs AGENTS.md and multi-agent workflow documentation**
+
+- **Model:** `claude-sonnet-4-6`
+- **Mode:** Subagent
+
+`agent-architect` is a specialized design agent for documentation about agent systems themselves — specifically `AGENTS.md` files and multi-agent workflow documentation. It defines agent roles, delegation patterns, and interaction guidelines.
+
+`agent-architect` is **write-denied** (design only). It produces design output; it does not write files directly.
+
+**When triggered:** Only via the `docs` routing agent, when the task involves AGENTS.md or multi-agent workflow design.
+
+**Permission boundaries:**
+
+```json
+"permission": {
+  "write": "deny",
+  "edit": "deny"
+}
+```
+
+---
+
+## Permission Model
+
+Agent permissions are controlled along three axes in `opencode.json`:
+
+### 1. `task` — Subagent delegation allow-list
+
+Primary routing agents (`coding-boss`, `docs`) use explicit task allow-lists:
+
+```json
+"task": {
+  "*": "deny",
+  "planner": "allow",
+  "implementer": "allow"
+}
+```
+
+This means `coding-boss` **can only delegate to the four agents listed in its allow-list**. It cannot spontaneously invoke any other agent. This is a hard architectural boundary — not a convention.
+
+### 2. `write` / `edit` — File system access
+
+| Agent | write | edit |
+|-------|-------|------|
+| `coding-boss` | deny | deny |
+| `planner` | deny | deny |
+| `implementer-small` | allow | allow |
+| `implementer` | allow | allow |
+| `code-reviewer` | deny | deny |
+| `docs` | deny | deny |
+| `docs-planner` | deny | deny |
+| `docs-writer-fast` | allow | allow |
+| `docs-writer-pro` | allow | allow |
+| `docs-reviewer` | deny | deny |
+| `agent-architect` | deny | deny |
+
+**Why routing, planning, and review agents are write-denied:**
+
+These agents exist to make decisions, not to produce artifacts. A routing agent that can write files could bypass the planning pipeline and implement directly. A planning agent that can edit files might "fix" things while planning, producing unreviewed changes. A reviewer that can edit files blurs the separation between review and implementation. Write-denial enforces role boundaries structurally.
+
+### 3. `bash` — Shell access
+
+| Agent | bash |
+|-------|------|
+| `planner` | ask (requires confirmation) |
+| `implementer-small` | allow |
+| `implementer` | allow |
+| `code-reviewer` | ask |
+
+Planning agents use `bash: ask` because they may legitimately need to inspect repository structure (e.g., `ls`, `find`, `grep`), but should not run build systems, tests, or mutation commands without user confirmation. Execution agents use `bash: allow` because running tests and build tools is part of their normal workflow.
+
+---
+
+## Workflow Walkthroughs
+
+### Coding Workflow
+
+```
+User
+  │
+  ▼
+coding-boss  [claude-sonnet-4-6]
+  │  Classifies task; produces no artifacts
+  │
+  ├─ NOT implementation-ready
+  │     │
+  │     ▼
+  │   planner  [claude-sonnet-4-6]
+  │     │  Produces: HANDOVER: IMPLEMENTATION PLAN
+  │     │  No files touched
+  │     │
+  │     ▼
+  │   implementer  [gpt-5.3-codex]
+  │     │  Follows plan strictly
+  │     │  Produces: HANDOVER: REVIEW SUMMARY
+  │     │
+  │     ▼
+  │   code-reviewer  [claude-sonnet-4-6]
+  │       Produces: REVIEW RESULT (approve / needs changes)
+  │
+  ├─ Implementation-ready, trivial
+  │     │
+  │     ▼
+  │   implementer-small  [gpt-5.1-codex-mini]
+  │       Produces: HANDOVER: REVIEW SUMMARY
+  │       (self-escalates to implementer if scope expands)
+  │
+  └─ Implementation-ready, non-trivial
+        │
+        ▼
+      implementer  [gpt-5.3-codex]
+        │  Produces: HANDOVER: REVIEW SUMMARY
+        │
+        ▼
+      code-reviewer  [claude-sonnet-4-6]
+          Produces: REVIEW RESULT
+```
+
+### Documentation Workflow
+
+```
+User
+  │
+  ▼
+docs  [claude-haiku-4-5]
+  │  Classifies task; produces no artifacts
+  │
+  ├─ AGENTS.md / multi-agent workflow design
+  │     │
+  │     ▼
+  │   agent-architect  [claude-sonnet-4-6]
+  │       Design output (write-denied)
+  │
+  ├─ Narrow, explicit, no synthesis needed
+  │     │
+  │     ▼
+  │   docs-writer-fast  [claude-haiku-4-5]
+  │       Small diff, direct edit
+  │
+  └─ Complex, multi-file, or requires codebase synthesis
+        │
+        ▼
+      docs-planner  [claude-sonnet-4-6]
+        │  Produces: HANDOVER: DOCS PLAN
+        │  No files touched
+        │
+        ├─ Simple/narrow scope → docs-writer-fast  [claude-haiku-4-5]
+        │
+        └─ Complex/comprehensive → docs-writer-pro  [claude-sonnet-4-6]
+                                        │
+                                        ▼
+                                   docs-reviewer  [claude-sonnet-4-6]
+                                       Produces: DOCS REVIEW RESULT
+```
+
+### HANDOVER Format
+
+HANDOVER blocks are the **machine-readable contracts between agents**. They are structured, labeled output blocks that a downstream agent can parse reliably, regardless of which model tier produced them. This prevents miscommunication when handing off work across model boundaries.
+
+The four HANDOVER block types in this system:
+
+**`HANDOVER: IMPLEMENTATION PLAN`** — produced by `planner`, consumed by `implementer`:
+
+```
+=== HANDOVER: IMPLEMENTATION PLAN ===
+Objective:
+  <what the change accomplishes>
+
+Scope:
+  <what is in and out of scope>
+
+Assumptions:
+  <what is assumed to be true>
+
+Constraints:
+  <what must not be changed>
+
+Likely affected files:
+- path/to/file.ts
+- path/to/other.ts
+
+Step-by-step plan:
+1. <first step>
+2. <second step>
+3. <third step>
+
+Test strategy:
+  <how to verify the change>
+
+Acceptance criteria:
+  <what done looks like>
+
+Risks and rollback notes:
+  <what could go wrong; how to revert>
+
+Escalation conditions:
+  <when to stop and re-plan>
+
+Next agent:
+@implementer
+=== END HANDOVER ===
+```
+
+**`HANDOVER: REVIEW SUMMARY`** — produced by `implementer` or `implementer-small`, consumed by `code-reviewer`:
+
+```
+=== HANDOVER: REVIEW SUMMARY ===
+Changes made:
+  <summary of what was done>
+
+Files changed:
+- path/to/file.ts
+
+Tests added or updated:
+  <test coverage summary>
+
+Open questions:
+  <anything unresolved>
+
+Suggested review focus:
+  <where to look most carefully>
+=== END HANDOVER ===
+```
+
+**`HANDOVER: DOCS PLAN`** — produced by `docs-planner`, consumed by `docs-writer-fast` or `docs-writer-pro`:
+
+```
+=== HANDOVER: DOCS PLAN ===
+Audience:
+  <who will read this documentation>
+
+Goal:
+  <what the documentation must accomplish>
+
+Files:
+  <files to create or update>
+
+Structure:
+1. <section heading>
+2. <section heading>
+
+Examples:
+  <what examples to include>
+
+Warnings:
+  <common errors to avoid>
+
+Next agent:
+@docs-writer-pro
+=== END HANDOVER ===
+```
+
+**`REVIEW RESULT`** and **`DOCS REVIEW RESULT`** — produced by review agents, returned to user or routing agent.
+
+---
+
+## Getting Started
+
+### Using the Configuration
+
+Point OpenCode AI at `opencode.json`:
+
+```bash
+# Validate the configuration
+cat opencode.json | jq . > /dev/null && echo "Valid JSON"
+```
+
+The `default_agent` field in `opencode.json` is set to `coding-boss`:
 
 ```json
 {
-  "agent-name": {
-    "description": "What this agent does",
-    "mode": "primary|subagent",
-    "model": "anthropic/claude-model-version",
-    "prompt": "System prompt for the agent",
-    "tools": {
-      "write": true|false,
-      "edit": true|false
+  "default_agent": "coding-boss"
+}
+```
+
+This means any coding task submitted without an explicit agent selection routes through `coding-boss` automatically.
+
+**Entry points:**
+- `coding-boss` — for all code changes, bug fixes, refactors, and implementations
+- `docs` — for all documentation tasks
+
+### Calling Agents
+
+```bash
+# Code task: coding-boss handles routing automatically
+# It will decide whether to plan first or go straight to implementation
+
+# Documentation task: docs applies planner-first policy
+# It will decide whether to plan, write directly, or involve agent-architect
+```
+
+You do not need to call `planner`, `implementer`, or `code-reviewer` directly. The routing agents manage the pipeline.
+
+---
+
+## Customization
+
+### Adding a New Agent
+
+1. Add the agent definition to `opencode.json` under `"agent"`:
+
+```json
+"my-new-agent": {
+  "description": "What this agent does",
+  "mode": "subagent",
+  "model": "opencode/claude-sonnet-4-6",
+  "prompt": "Your system prompt here.",
+  "permission": {
+    "write": "deny",
+    "edit": "deny"
+  }
+}
+```
+
+2. **Update the task allow-list** of any routing agent that should be able to delegate to it. If you add a new implementation agent but don't add it to `coding-boss`'s `task` allow-list, `coding-boss` will never route work to it:
+
+```json
+"coding-boss": {
+  "permission": {
+    "task": {
+      "*": "deny",
+      "planner": "allow",
+      "implementer-small": "allow",
+      "implementer": "allow",
+      "my-new-agent": "allow",   // ← add here
+      "code-reviewer": "allow"
     }
   }
 }
 ```
 
-### Key Properties Explained
+### Adjusting Model Tiers
 
-- **`description`**: Human-readable explanation of the agent's purpose
-- **`mode`**: 
-  - `primary`: Can handle requests directly as entry points
-  - `subagent`: Works under other agents or routing systems
-- **`model`**: The AI model to use (following OpenCode AI model naming conventions)
-  - Claude Haiku 4.5: Lightweight model for routing, analysis, and simple tasks
-  - Claude Haiku 4: Lightweight model for junior-level implementations
-  - Claude Sonnet 4.6: Powerful model for complex tasks and architecture
-- **`prompt`**: System-level instructions that define the agent's behavior and decision-making
-- **`tools`**: Permission settings for what the agent can do
-  - `write`: Can create new files
-  - `edit`: Can modify existing files
+To swap a model, update the `model` field for the relevant agent:
 
-## 🔧 Customization
-
-### Adding New Agents
-1. Edit `opencode.json`
-2. Add your new agent following the schema structure
-3. Decide if it should be a `primary` (entry point) or `subagent` (called by others)
-4. Commit and push your changes
-5. Update dependent applications to use the new agent
-
-### Modifying Existing Agents
-1. Update the relevant agent configuration
-2. Test thoroughly in your development environment
-3. Document any breaking changes in commit messages
-4. Deploy updates to consuming applications
-
-## 🌐 Integration Examples
-
-### Web Applications
-```html
-<!-- Load configuration dynamically -->
-<script>
-fetch('./opencode.json')
-  .then(response => response.json())
-  .then(config => {
-    const codingBoss = config.agent['coding-boss'];
-    const docsRouter = config.agent['docs'];
-    // Initialize agents with configuration
-  });
-</script>
+```json
+"implementer": {
+  "model": "opencode/gpt-5.3-codex"  // change to another model here
+}
 ```
 
-### Python Applications
-```python
-import json
+**Cost implications:**
+- Upgrading `implementer-small` from `gpt-5.1-codex-mini` to a more expensive model increases cost for every trivial task
+- Downgrading `planner` or `code-reviewer` from sonnet risks lower-quality plans and missed issues
+- `docs` routing agent uses haiku deliberately — its routing logic is simple enough that spending sonnet tokens here is wasteful
 
-# Load agent configuration
-with open('opencode.json', 'r') as f:
-    config = json.load(f)
+### Modifying Routing Logic
 
-# Access specific agents
-coding_boss = config['agent']['coding-boss']
-docs_router = config['agent']['docs']
-junior_eng = config['agent']['junior']
-```
+The routing logic lives in the `prompt` field of `coding-boss` and `docs`. To change how tasks are classified:
 
-### API Integration
-```bash
-# Use as a remote configuration source
-curl -s https://raw.githubusercontent.com/yourusername/opencode-agents/main/opencode.json | jq '.agent["coding-boss"]'
-```
-
-## 📖 Use Cases
-
-This configuration repository is ideal for:
-
-- **Multi-site Deployments**: Share agent configurations across multiple applications
-- **Team Collaboration**: Ensure consistent AI-assisted development workflows across team projects
-- **Automatic Task Routing**: Let the coding-boss automatically assign work to appropriate engineering levels
-- **Version Management**: Track evolution of AI agent capabilities and routing logic
-- **A/B Testing**: Easily switch between different agent models or prompts
-- **Standardization**: Maintain consistent AI interactions and quality standards across platforms
-
-## 🔒 Security Considerations
-
-- **Tool Permissions**: Agents have specific read/write permissions - respect these in your implementation
-- **Model Selection**: Different models have different capabilities and cost implications
-  - Haiku models: Cost-effective for routing and simple tasks
-  - Sonnet models: Recommended for complex implementations and architectural decisions
-- **Prompt Engineering**: System prompts define agent behavior - review them carefully before deploying
-- **Access Control**: Consider who can modify this central configuration
-- **Escalation Chains**: Respect the built-in escalation logic (junior → senior → architect)
-
-## 📈 Monitoring and Analytics
-
-Consider tracking:
-- Agent usage patterns and routing decisions
-- Performance metrics per agent type and model
-- Configuration change impact on team workflows
-- User satisfaction with agent responses
-- Cost implications of model selection
-
-## 🤝 Contributing
-
-1. **Fork** this repository
-2. **Create** a feature branch for your changes
-3. **Test** your configuration thoroughly
-4. **Submit** a pull request with clear documentation
-5. **Collaborate** on reviews and improvements
-
-### Contribution Guidelines
-- Follow the OpenCode AI schema strictly
-- Provide clear descriptions for new agents
-- Test configurations before submitting
-- Document any breaking changes
-- Consider backward compatibility
-- Update this README if you add or modify agents
-
-## 📄 License
-
-This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0). See the [LICENSE](LICENSE) file for details.
-
-## 🔗 Links
-
-- [OpenCode AI Schema](https://opencode.ai/config.json)
+1. Edit the relevant `prompt` in `opencode.json`
+2. Preserve the HANDOVER contract formats — downstream agents parse these structurally
+3. Preserve the task allow-list entries for any agent you want to remain routable
+4. Test with representative tasks across each routing branch
 
 ---
 
-**Need help?** Open an issue or check the [OpenCode AI documentation](https://opencode.ai) for more information about implementing and using AI agent configurations.
+## Security & Cost Considerations
+
+**Security:**
+- Routing agents are write-denied by design — they cannot produce unreviewed file changes
+- Never grant `write` or `edit` permissions to planner or reviewer agents; doing so undermines the separation of decision and action
+- `coding-boss` uses an explicit task allow-list (`"*": "deny"`) — it cannot spontaneously delegate to arbitrary agents
+- Review `bash` permissions carefully when adding new agents; `ask` is safer than `allow` for agents that should not run commands autonomously
+
+**Cost:**
+- Use `implementer-small` for genuinely trivial tasks — it uses the cheapest code model in the stack
+- `docs` routing agent uses haiku because routing classification requires no heavy reasoning
+- Avoid routing all tasks to `implementer` (codex) when `implementer-small` (codex-mini) would suffice
+- Planning agents use sonnet because a bad plan multiplies cost downstream — this is the right place to spend tokens
+
+---
+
+## License
+
+AGPL-3.0 — see the [LICENSE](LICENSE) file for details.
+
+---
+
+## Links
+
+- [OpenCode AI](https://opencode.ai)
+- [OpenCode AI Configuration Schema](https://opencode.ai/config.json)
+- [Anthropic Claude Models](https://docs.anthropic.com/en/docs/about-claude/models)
