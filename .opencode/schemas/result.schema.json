@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": ".opencode/schemas/result.schema.json",
+  "title": "OpenCode Agent Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "result_type",
+    "agent",
+    "source_handoff_id",
+    "created_at",
+    "status"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "result_type": {
+      "type": "string",
+      "enum": [
+        "review_summary",
+        "review_result",
+        "docs_result",
+        "blocked"
+      ]
+    },
+    "agent": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_handoff_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Use a simple ISO 8601 UTC timestamp like 2026-03-16T18:31:00Z"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "approve",
+        "needs_changes",
+        "done",
+        "blocked"
+      ]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "files_changed": {
+      "$ref": "#/$defs/stringList"
+    },
+    "files_intentionally_not_changed": {
+      "$ref": "#/$defs/stringList"
+    },
+    "tests_run": {
+      "$ref": "#/$defs/stringList"
+    },
+    "known_risks_or_limitations": {
+      "$ref": "#/$defs/stringList"
+    },
+    "review_focus": {
+      "$ref": "#/$defs/stringList"
+    },
+    "findings": {
+      "$ref": "#/$defs/stringList"
+    },
+    "checks_performed": {
+      "$ref": "#/$defs/stringList"
+    },
+    "recommended_next_step": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "needs": {
+      "$ref": "#/$defs/stringList"
+    },
+    "suggested_next_agent": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "stringList": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

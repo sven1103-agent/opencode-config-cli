@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": ".opencode/schemas/handoff.schema.json",
+  "title": "OpenCode Handoff Artifact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "kind",
+    "handoff_id",
+    "parent_handoff_id",
+    "from_agent",
+    "to_agent",
+    "created_at",
+    "status",
+    "payload"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "implementation_plan",
+        "review_summary",
+        "docs_plan",
+        "docs_result"
+      ]
+    },
+    "handoff_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "parent_handoff_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "from_agent": {
+      "type": "string",
+      "minLength": 1
+    },
+    "to_agent": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Use a simple ISO 8601 UTC timestamp like 2026-03-16T18:31:00Z"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "in_progress",
+        "done",
+        "blocked"
+      ]
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "goal",
+        "why",
+        "files_to_modify",
+        "files_to_inspect_only",
+        "do_not_modify",
+        "inputs_already_verified",
+        "changes",
+        "tests",
+        "done_when",
+        "abort_if"
+      ],
+      "properties": {
+        "goal": {
+          "type": "string",
+          "minLength": 1
+        },
+        "why": {
+          "type": "string",
+          "minLength": 1
+        },
+        "files_to_modify": {
+          "$ref": "#/$defs/stringList"
+        },
+        "files_to_inspect_only": {
+          "$ref": "#/$defs/stringList"
+        },
+        "do_not_modify": {
+          "$ref": "#/$defs/stringList"
+        },
+        "inputs_already_verified": {
+          "$ref": "#/$defs/stringList"
+        },
+        "changes": {
+          "$ref": "#/$defs/stringList"
+        },
+        "tests": {
+          "$ref": "#/$defs/stringList"
+        },
+        "done_when": {
+          "$ref": "#/$defs/stringList"
+        },
+        "abort_if": {
+          "$ref": "#/$defs/stringList"
+        },
+        "examples": {
+          "$ref": "#/$defs/stringList"
+        },
+        "review_focus": {
+          "$ref": "#/$defs/stringList"
+        },
+        "known_risks_or_limitations": {
+          "$ref": "#/$defs/stringList"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "stringList": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}
