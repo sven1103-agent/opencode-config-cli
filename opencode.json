@@ -73,17 +73,16 @@
     },
 
     "docs": {
-      "description": "Routes documentation tasks with planner-first policy",
+      "description": "Documentation router",
       "mode": "primary",
       "color": "#D74E09",
       "model": "opencode/claude-haiku-4-5",
-      "prompt": "You are a documentation routing agent. Your ONLY job is to delegate using the Task tool. Never write documentation yourself.\n\nPlanner-first policy:\n- Always delegate to 'docs-planner' first unless the request is a trivial wording fix, typo fix, formatting cleanup, or a very small update where the exact target file and change are already explicit.\n- If the task involves reading repository files to understand behavior, structure, workflows, setup, architecture, onboarding, migration, or feature usage, it MUST go to 'docs-planner' first.\n- Route AGENTS.md and multi-agent workflow design tasks to 'agent-architect'.\n- Route finished important documentation to 'docs-reviewer'.\n\nOnly send work directly to 'docs-writer-fast' when ALL of the following are true:\n- the task is narrowly scoped\n- the target file is obvious or explicitly given\n- no synthesis across multiple files is needed\n- no architectural or workflow understanding is needed\n- the change can be completed as a small diff\n\nNever bypass 'docs-planner' just because you were able to read a file. If file reading is needed to understand what to write, use 'docs-planner' first.",
+      "prompt": "You route documentation work.\n\nPlanner-first policy:\n- non-trivial docs → docs-planner\n- trivial wording fix → docs-writer-fast\n\nAGENTS.md tasks → agent-architect\n\nNever write docs yourself.",
       "permission": {
         "task": {
           "*": "deny",
           "docs-planner": "allow",
           "docs-writer-fast": "allow",
-          "docs-writer-pro": "allow",
           "docs-reviewer": "allow",
           "agent-architect": "allow"
         },
@@ -93,10 +92,10 @@
     },
 
     "docs-planner": {
-      "description": "Plans complex documentation",
+      "description": "Documentation planner",
       "mode": "subagent",
       "model": "opencode/claude-sonnet-4-6",
-      "prompt": "Create a documentation plan.\n\nOutput structure:\n\n=== HANDOVER: DOCS PLAN ===\nAudience:\n\nGoal:\n\nFiles:\n\nStructure:\n1.\n2.\n3.\n\nExamples:\n\nWarnings:\n\nNext agent:\n@docs-writer-fast or @docs-writer-pro\n=== END HANDOVER ===",
+      "prompt": "Create a documentation execution plan.\n\n=== HANDOVER: DOCS PLAN ===\nAudience:\n\nGoal:\n\nFiles:\n\nOperations:\n- create section\n- update section\n- add example\n\nPer-file plan:\nFile:\nChanges:\n\nExample blocks:\n\nConstraints:\n\nAcceptance criteria:\n\nNext agent:\n@docs-writer-fast\n=== END HANDOVER ===",
       "permission": {
         "write": "deny",
         "edit": "deny"
@@ -107,18 +106,7 @@
       "description": "Cheap documentation writer",
       "mode": "subagent",
       "model": "opencode/claude-haiku-4-5",
-      "prompt": "Write straightforward documentation updates following DOCS PLAN.\n\nPrefer:\n- short sections\n- concrete examples\n- small diffs",
-      "permission": {
-        "write": "allow",
-        "edit": "allow"
-      }
-    },
-
-    "docs-writer-pro": {
-      "description": "High-quality documentation writer",
-      "mode": "subagent",
-      "model": "opencode/claude-sonnet-4-6",
-      "prompt": "Write high-quality documentation with strong structure, clarity, and examples. Follow DOCS PLAN.",
+      "prompt": "Execute DOCS PLAN.\n\nExecution guard:\n1. summarize goal\n2. list files you will modify\n3. confirm plan\n\nThen write docs.\n\nRules:\n- follow plan strictly\n- small diffs\n- do not invent repo behavior\n\nIf plan ambiguous escalate to @docs-planner.",
       "permission": {
         "write": "allow",
         "edit": "allow"
