@@ -1,6 +1,8 @@
 # OpenCode AI Agents — Planning-First Multi-Tier Configuration
 
-This repository contains a planning-first, multi-tier agent configuration for [OpenCode AI](https://opencode.ai) (commonly used as `opencode.json`), plus an OpenAI-model variant in `opencode.openai.json`. It defines specialized agents across four functional tiers — routing, planning, execution, and validation — designed to minimize cost while preserving quality at every decision point.
+Drop-in OpenCode agent configs that route work through schema-validated JSON handoff artifacts before planning, execution, and review. The goal is fewer ambiguous changes, less rework, and tighter safety boundaries with a small, explicit contract between agents.
+
+This repository contains a planning-first, multi-tier agent configuration for [OpenCode AI](https://opencode.ai), plus an OpenAI-model variant in `opencode.openai.json`. It defines specialized agents across four functional tiers — routing/orchestration, planning, execution, and validation — designed to minimize cost while preserving quality at every decision point.
 
 Repository configuration files:
 
@@ -56,7 +58,7 @@ Four model tiers are used, selected on the principle: **use the cheapest model t
 - **Mode:** Primary (default entry point)
 - **Color:** `#BEEE62`
 
-`coding-boss` is the default agent for all coding tasks. Its only job is to classify the incoming request and delegate — it never writes code itself.
+`coding-boss` is the default agent for all coding tasks. It classifies the incoming request and delegates; it never writes code, but it does write/update handoff artifacts under `.opencode/handoffs/`.
 
 **Routing decision tree:**
 
@@ -96,12 +98,12 @@ Incoming coding task
     "implementer": "allow",
     "code-reviewer": "allow"
   },
-  "write": "deny",
-  "edit": "deny"
+  "write": "allow",
+  "edit": "allow"
 }
 ```
 
-`coding-boss` operates on an explicit task allow-list. It cannot delegate to any agent not listed. It cannot write or edit files — it produces no artifacts of its own.
+`coding-boss` operates on an explicit task allow-list. It cannot delegate to any agent not listed. Its file access is intended for maintaining `.opencode/handoffs/*` artifacts only.
 
 ---
 
@@ -113,7 +115,7 @@ Incoming coding task
 - **Mode:** Primary
 - **Color:** `#D74E09`
 
-`docs` is the entry point for all documentation work. Like `coding-boss`, it never writes documentation itself — it classifies and delegates.
+`docs` is the entry point for all documentation work. Like `coding-boss`, it never writes documentation itself — it classifies and delegates, and maintains `.opencode/handoffs/*` artifacts.
 
 **Planner-first policy:** Unless the request is a trivial wording fix, typo correction, or formatting cleanup with an obvious target file, `docs` routes to `docs-planner` first. File reading alone is not sufficient justification to skip planning — if understanding requires reading multiple files or synthesizing behavior, `docs-planner` must run first.
 
@@ -131,7 +133,7 @@ Incoming documentation task
 └─ Everything else (architecture, onboarding, migration,
    feature docs, multi-file synthesis)
       └─→ docs-planner → docs-writer-fast
-           └─→ docs-reviewer (for important docs)
+           └─→ (optional) docs-reviewer
 ```
 
 **Permission boundaries:**
@@ -145,8 +147,8 @@ Incoming documentation task
     "docs-reviewer": "allow",
     "agent-architect": "allow"
   },
-  "write": "deny",
-  "edit": "deny"
+  "write": "allow",
+  "edit": "allow"
 }
 ```
 
@@ -163,7 +165,7 @@ Incoming documentation task
 - **Model:** `claude-sonnet-4-6`
 - **Mode:** Subagent
 
-`planner` analyzes the task and repository context and produces a structured execution plan. It **never edits files**. Its entire output is a `HANDOVER: IMPLEMENTATION PLAN` block (see [HANDOVER Format](#handover-format)).
+`planner` analyzes the task and repository context and produces a structured execution plan. It **never edits files**.
 
 The plan includes: objective, scope, assumptions, constraints, likely affected files, step-by-step instructions, test strategy, acceptance criteria, risks, rollback notes, and escalation conditions.
 
@@ -188,7 +190,7 @@ The plan includes: objective, scope, assumptions, constraints, likely affected f
 - **Model:** `claude-sonnet-4-6`
 - **Mode:** Subagent
 
-`docs-planner` researches the codebase, understands its structure and behavior, and produces a `HANDOVER: DOCS PLAN` block that specifies the audience, goal, exact files to update, what to change in each file, examples to include, and how to verify accuracy.
+`docs-planner` researches the codebase, understands its structure and behavior, and produces a compact docs execution plan (audience, goal, exact files/sections to update, concrete changes, examples to include, and how to verify accuracy).
 
 **When triggered vs. `docs-writer-fast` directly:**
 - Triggered when the task involves reading files to understand behavior, workflows, architecture, onboarding, migrations, or feature usage
@@ -225,7 +227,7 @@ The plan includes: objective, scope, assumptions, constraints, likely affected f
 
 **Self-escalation:** If scope unexpectedly expands during implementation, `implementer-small` stops and escalates to `@implementer` rather than proceeding beyond its mandate.
 
-**Output:** A `HANDOVER: REVIEW SUMMARY` block.
+**Output:** Review summary content (commonly formatted as a `HANDOVER: REVIEW SUMMARY` block).
 
 **Permission boundaries:**
 
@@ -246,11 +248,11 @@ The plan includes: objective, scope, assumptions, constraints, likely affected f
 - **Model:** `gpt-5.3-codex`
 - **Mode:** Subagent
 
-`implementer` is the main execution engine for non-trivial coding tasks. It requires a `HANDOVER: IMPLEMENTATION PLAN` as input and follows it strictly.
+`implementer` is the main execution engine for non-trivial coding tasks. It requires an implementation plan in its assigned handoff artifact and follows it strictly.
 
 Before editing, it restates: the objective, files it expects to modify, and its execution plan. If the plan is invalid or contradictory, it escalates back to `@planner` rather than improvising.
 
-**Output:** A `HANDOVER: REVIEW SUMMARY` block.
+**Output:** Review summary content (commonly formatted as a `HANDOVER: REVIEW SUMMARY` block).
 
 **Permission boundaries:**
 
@@ -273,7 +275,7 @@ Before editing, it restates: the objective, files it expects to modify, and its 
 - **Model:** `claude-haiku-4-5`
 - **Mode:** Subagent
 
-`docs-writer-fast` executes narrowly scoped documentation updates (typos, small rewrites, formatting, concrete examples) and also carries out larger edits when guided by a `HANDOVER: DOCS PLAN`. It keeps diffs tight and follows the plan strictly; if the plan is missing, contradictory, or the scope expands, it escalates to `@docs-planner`.
+`docs-writer-fast` executes narrowly scoped documentation updates (typos, small rewrites, formatting, concrete examples) and also carries out larger edits when guided by a docs plan. It keeps diffs tight and follows the plan strictly; if the plan is missing, contradictory, or the scope expands, it escalates to `@docs-planner`.
 
 **Permission boundaries:**
 
@@ -297,7 +299,7 @@ Before editing, it restates: the objective, files it expects to modify, and its 
 - **Model:** `claude-sonnet-4-6`
 - **Mode:** Subagent
 
-`code-reviewer` receives a `HANDOVER: REVIEW SUMMARY` from an implementer and performs a structured review against four axes: correctness, security, maintainability, and test adequacy.
+`code-reviewer` receives a review summary from an implementer and performs a structured review against four axes: correctness, security, maintainability, and test adequacy.
 
 **Output format:**
 
@@ -360,7 +362,7 @@ Recommended next step:
 - **Model:** `claude-sonnet-4-6`
 - **Mode:** Subagent
 
-`agent-architect` is a specialized design agent for documentation about agent systems themselves — specifically `AGENTS.md` files and multi-agent workflow documentation. It defines agent roles, delegation patterns, and interaction guidelines.
+`agent-architect` is a specialized design agent for documentation about agent systems themselves — for example, an `AGENTS.md` you maintain in your own repo. It defines agent roles, delegation patterns, and interaction guidelines.
 
 `agent-architect` is **write-denied** (design only). It produces design output; it does not write files directly.
 
@@ -399,20 +401,22 @@ This means `coding-boss` **can only delegate to the four agents listed in its al
 
 | Agent | write | edit |
 |-------|-------|------|
-| `coding-boss` | deny | deny |
+| `coding-boss` | allow* | allow* |
 | `planner` | deny | deny |
 | `implementer-small` | allow | allow |
 | `implementer` | allow | allow |
 | `code-reviewer` | deny | deny |
-| `docs` | deny | deny |
+| `docs` | allow* | allow* |
 | `docs-planner` | deny | deny |
 | `docs-writer-fast` | allow | allow |
 | `docs-reviewer` | deny | deny |
 | `agent-architect` | deny | deny |
 
-**Why routing, planning, and review agents are write-denied:**
+\* Intended for maintaining `.opencode/handoffs/*` only.
 
-These agents exist to make decisions, not to produce artifacts. A routing agent that can write files could bypass the planning pipeline and implement directly. A planning agent that can edit files might "fix" things while planning, producing unreviewed changes. A reviewer that can edit files blurs the separation between review and implementation. Write-denial enforces role boundaries structurally.
+**Why routing, planning, and review agents are (mostly) write-denied:**
+
+Planning and review agents exist to make decisions, not to implement. Write-denial prevents "fixing while planning" and blurring the line between review and implementation. Routing/orchestration agents are the exception: they maintain handoff artifacts under `.opencode/handoffs/*` but should not touch the rest of the repo.
 
 ### 3. `bash` — Shell access
 
@@ -423,7 +427,7 @@ These agents exist to make decisions, not to produce artifacts. A routing agent 
 | `implementer` | allow |
 | `code-reviewer` | ask |
 
-Planning agents use `bash: ask` because they may legitimately need to inspect repository structure (e.g., `ls`, `find`, `grep`), but should not run build systems, tests, or mutation commands without user confirmation. Execution agents use `bash: allow` because running tests and build tools is part of their normal workflow.
+Agents with `bash: ask` (for example: `planner`, `code-reviewer`) may legitimately need to inspect repository structure (e.g., `ls`, `find`, `grep`), but should not run build systems, tests, or mutation commands without user confirmation. Execution agents use `bash: allow` because running tests and build tools is part of their normal workflow.
 
 ---
 
@@ -436,40 +440,40 @@ User
   │
   ▼
 coding-boss  [claude-sonnet-4-6]
-  │  Classifies task; produces no artifacts
+  │  Routes task; maintains `.opencode/handoffs/*`
   │
   ├─ NOT implementation-ready
   │     │
   │     ▼
   │   planner  [claude-sonnet-4-6]
-  │     │  Produces: HANDOVER: IMPLEMENTATION PLAN
+  │     │  Returns: implementation plan content
   │     │  No files touched
   │     │
   │     ▼
   │   implementer  [gpt-5.3-codex]
   │     │  Follows plan strictly
-  │     │  Produces: HANDOVER: REVIEW SUMMARY
+  │     │  Returns: review summary content
   │     │
   │     ▼
   │   code-reviewer  [claude-sonnet-4-6]
-  │       Produces: REVIEW RESULT (approve / needs changes)
+  │       Returns: review result (approve / needs changes)
   │
   ├─ Implementation-ready, trivial
   │     │
   │     ▼
   │   implementer-small  [gpt-5.1-codex-mini]
-  │       Produces: HANDOVER: REVIEW SUMMARY
+  │       Returns: review summary content
   │       (self-escalates to implementer if scope expands)
   │
   └─ Implementation-ready, non-trivial
         │
         ▼
       implementer  [gpt-5.3-codex]
-        │  Produces: HANDOVER: REVIEW SUMMARY
+        │  Returns: review summary content
         │
         ▼
       code-reviewer  [claude-sonnet-4-6]
-          Produces: REVIEW RESULT
+          Returns: review result
 ```
 
 ### Documentation Workflow
@@ -479,7 +483,7 @@ User
   │
   ▼
 docs  [claude-haiku-4-5]
-  │  Classifies task; produces no artifacts
+  │  Routes task; maintains `.opencode/handoffs/*`
   │
   ├─ AGENTS.md / multi-agent workflow design
   │     │
@@ -497,15 +501,15 @@ docs  [claude-haiku-4-5]
         │
         ▼
       docs-planner  [claude-sonnet-4-6]
-        │  Produces: HANDOVER: DOCS PLAN
+        │  Returns: docs plan content
         │  No files touched
         │
         ▼
       docs-writer-fast  [claude-haiku-4-5]
         │
         ▼
-      docs-reviewer  [claude-sonnet-4-6]   (for important docs)
-        Produces: DOCS REVIEW RESULT
+      docs-reviewer  [claude-sonnet-4-6]   (optional)
+        Returns: docs review result
 ```
 
 ### Concrete Routing Examples
@@ -524,14 +528,14 @@ docs  [openai/gpt-5.2]
 User prompt: "Add a new 'Getting Started' section describing how to run tests and lint."
 docs  [openai/gpt-5.2]
   → docs-planner  [openai/gpt-5.4]
-      Produces: HANDOVER: DOCS PLAN
+      Returns: docs plan content
       Next agent: @docs-writer-fast
   → docs-writer-fast  [openai/gpt-5.2]
-  → docs-reviewer  [openai/gpt-5.4]    (only for important docs)
+  → docs-reviewer  [openai/gpt-5.4]    (optional)
 ```
 
 ```
-User prompt: "Create/refresh AGENTS.md to document our multi-agent workflow."
+User prompt: "Create/refresh an AGENTS.md to document our multi-agent workflow."
 docs  [openai/gpt-5.2]
   → agent-architect  [openai/gpt-5.4]
 ```
@@ -548,112 +552,28 @@ coding-boss  [openai/gpt-5.2]
 User prompt: "Add rate limiting to the API (needs design decisions + tests)."
 coding-boss  [openai/gpt-5.2]
   → planner  [openai/gpt-5.4]
-      Produces: HANDOVER: IMPLEMENTATION PLAN
+      Returns: implementation plan content
       Next agent: @implementer
   → implementer  [openai/gpt-5.3-codex]
   → code-reviewer  [openai/gpt-5.4]
 ```
 
-### HANDOVER Format
+### Handoff Artifacts (JSON Contract)
 
-HANDOVER blocks are the **machine-readable contracts between agents**. They are structured, labeled output blocks that a downstream agent can parse reliably, regardless of which model tier produced them. This prevents miscommunication when handing off work across model boundaries.
+This repo's cross-agent contract is an on-disk, schema-validated JSON handoff artifact written by the routing/orchestration agent (for example: `coding-boss`, `docs`) to `.opencode/handoffs/<iso8601-utc>-<from>-to-<to>.json`.
 
-The four HANDOVER block types in this system:
+The `=== HANDOVER ... ===` blocks shown in prompts and examples are a human-readable convention; the machine-validated structure is the JSON artifact itself.
 
-**`HANDOVER: IMPLEMENTATION PLAN`** — produced by `planner`, consumed by `implementer`:
+Canonical schemas:
 
-```
-=== HANDOVER: IMPLEMENTATION PLAN ===
-Objective:
-  <what the change accomplishes>
+- `.opencode/schemas/handoff.schema.json` (what a handoff artifact must contain)
+- `.opencode/schemas/result.schema.json` (optional structured result objects agents may return)
 
-Scope:
-  <what is in and out of scope>
+At minimum, handoff artifacts include required top-level fields like `version`, `kind`, `handoff_id`, `parent_handoff_id`, `from_agent`, `to_agent`, `created_at`, `status`, and a `payload` with fields like `goal`, `why`, `files_to_modify`, `changes`, and acceptance/abort criteria.
 
-Assumptions:
-  <what is assumed to be true>
+Example filename shape:
 
-Constraints:
-  <what must not be changed>
-
-Likely affected files:
-- path/to/file.ts
-- path/to/other.ts
-
-Step-by-step plan:
-1. <first step>
-2. <second step>
-3. <third step>
-
-Test strategy:
-  <how to verify the change>
-
-Acceptance criteria:
-  <what done looks like>
-
-Risks and rollback notes:
-  <what could go wrong; how to revert>
-
-Escalation conditions:
-  <when to stop and re-plan>
-
-Next agent:
-@implementer
-=== END HANDOVER ===
-```
-
-**`HANDOVER: REVIEW SUMMARY`** — produced by `implementer` or `implementer-small`, consumed by `code-reviewer`:
-
-```
-=== HANDOVER: REVIEW SUMMARY ===
-Changes made:
-  <summary of what was done>
-
-Files changed:
-- path/to/file.ts
-
-Tests added or updated:
-  <test coverage summary>
-
-Open questions:
-  <anything unresolved>
-
-Suggested review focus:
-  <where to look most carefully>
-=== END HANDOVER ===
-```
-
-**`HANDOVER: DOCS PLAN`** — produced by `docs-planner`, consumed by `docs-writer-fast`:
-
-```
-=== HANDOVER: DOCS PLAN ===
-Audience:
-
-Goal:
-
-Files:
-
-Operations:
-- create section
-- update section
-- add example
-
-Per-file plan:
-File:
-Changes:
-
-Example blocks:
-
-Constraints:
-
-Acceptance criteria:
-
-Next agent:
-@docs-writer-fast
-=== END HANDOVER ===
-```
-
-**`REVIEW RESULT`** and **`DOCS REVIEW RESULT`** — produced by review agents, returned to user or routing agent.
+- `.opencode/handoffs/2026-03-16T18-31-00Z-coding-boss-to-planner.json`
 
 ---
 
@@ -754,7 +674,7 @@ To swap a model, update the `model` field for the relevant agent:
 The routing logic lives in the `prompt` field of `coding-boss` and `docs`. To change how tasks are classified:
 
 1. Edit the relevant `prompt` in your configuration file
-2. Preserve the HANDOVER contract formats — downstream agents parse these structurally
+2. Preserve the JSON handoff contract formats (`.opencode/schemas/handoff.schema.json`) — downstream agents validate these; `=== HANDOVER ... ===` blocks are a human-readable convention
 3. Preserve the task allow-list entries for any agent you want to remain routable
 4. Test with representative tasks across each routing branch
 
@@ -763,7 +683,7 @@ The routing logic lives in the `prompt` field of `coding-boss` and `docs`. To ch
 ## Security & Cost Considerations
 
 **Security:**
-- Routing agents are write-denied by design — they cannot produce unreviewed file changes
+- Routing/orchestration agents can write/edit, but should only touch `.opencode/handoffs/*` (and that directory is typically gitignored)
 - Never grant `write` or `edit` permissions to planner or reviewer agents; doing so undermines the separation of decision and action
 - `coding-boss` uses an explicit task allow-list (`"*": "deny"`) — it cannot spontaneously delegate to arbitrary agents
 - Review `bash` permissions carefully when adding new agents; `ask` is safer than `allow` for agents that should not run commands autonomously
