@@ -10,28 +10,28 @@
           "options": {
             "reasoningEffort": "medium",
             "textVerbosity": "low",
-            "reasoningSummary": "auto"
+            "reasoningSummary": "concise"
           }
         },
         "gpt-5.2": {
           "options": {
             "reasoningEffort": "low",
             "textVerbosity": "low",
-            "reasoningSummary": "auto"
+            "reasoningSummary": "concise"
           }
         },
         "gpt-5.3-codex": {
           "options": {
             "reasoningEffort": "low",
             "textVerbosity": "low",
-            "reasoningSummary": "auto"
+            "reasoningSummary": "concise"
           }
         },
         "gpt-5.1-codex-mini": {
           "options": {
             "reasoningEffort": "minimal",
             "textVerbosity": "low",
-            "reasoningSummary": "auto"
+            "reasoningSummary": "concise"
           }
         }
       }
