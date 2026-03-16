@@ -1,6 +1,11 @@
 # OpenCode AI Agents — Planning-First Multi-Tier Configuration
 
-This repository contains `opencode.json`: a single, opinionated agent configuration for [OpenCode AI](https://opencode.ai) that implements a **planning-first, multi-tier agent architecture**. It defines 10 specialized agents across 4 functional tiers — routing, planning, execution, and validation — designed to minimize cost while preserving quality at every decision point.
+This repository contains a planning-first, multi-tier agent configuration for [OpenCode AI](https://opencode.ai) (commonly used as `opencode.json`), plus an OpenAI-model variant in `opencode.openai.json`. It defines specialized agents across four functional tiers — routing, planning, execution, and validation — designed to minimize cost while preserving quality at every decision point.
+
+Repository configuration files:
+
+- `opencode.mixed.json` — mixed model stack (routing/planning/review vs. code execution)
+- `opencode.openai.json` — OpenAI-based variant (including docs routing examples in this README)
 
 ---
 
@@ -399,7 +404,7 @@ Recommended next step:
 
 ## Permission Model
 
-Agent permissions are controlled along three axes in `opencode.json`:
+Agent permissions are controlled along three axes in your configuration file (for example: `opencode.mixed.json`, `opencode.openai.json`, or a local `opencode.json`):
 
 ### 1. `task` — Subagent delegation allow-list
 
@@ -530,6 +535,52 @@ docs  [claude-haiku-4-5]
                                        Produces: DOCS REVIEW RESULT
 ```
 
+### Concrete Routing Examples
+
+The examples below are concrete, paste-ready delegation flows as encoded in `opencode.openai.json`. These examples correspond to `opencode.openai.json`; other diagrams/tables in this README may reflect `opencode.mixed.json`.
+
+**Documentation tasks:**
+
+```
+User prompt: "Fix a typo in README.md: change 'workfow' to 'workflow'."
+docs  [openai/gpt-5.2]
+  → docs-writer-fast  [openai/gpt-5.2]
+```
+
+```
+User prompt: "Add a new 'Getting Started' section describing how to run tests and lint."
+docs  [openai/gpt-5.2]
+  → docs-planner  [openai/gpt-5.4]
+      Produces: HANDOVER: DOCS PLAN
+      Next agent: @docs-writer-fast
+  → docs-writer-fast  [openai/gpt-5.2]
+  → docs-reviewer  [openai/gpt-5.4]    (only for important docs)
+```
+
+```
+User prompt: "Create/refresh AGENTS.md to document our multi-agent workflow."
+docs  [openai/gpt-5.2]
+  → agent-architect  [openai/gpt-5.4]
+```
+
+**Coding tasks:**
+
+```
+User prompt: "Rename a local variable in src/foo.ts and update its references."
+coding-boss  [openai/gpt-5.2]
+  → implementer-small  [openai/gpt-5.1-codex-mini]
+```
+
+```
+User prompt: "Add rate limiting to the API (needs design decisions + tests)."
+coding-boss  [openai/gpt-5.2]
+  → planner  [openai/gpt-5.4]
+      Produces: HANDOVER: IMPLEMENTATION PLAN
+      Next agent: @implementer
+  → implementer  [openai/gpt-5.3-codex]
+  → code-reviewer  [openai/gpt-5.4]
+```
+
 ### HANDOVER Format
 
 HANDOVER blocks are the **machine-readable contracts between agents**. They are structured, labeled output blocks that a downstream agent can parse reliably, regardless of which model tier produced them. This prevents miscommunication when handing off work across model boundaries.
@@ -635,14 +686,16 @@ Next agent:
 
 ### Using the Configuration
 
-Point OpenCode AI at `opencode.json`:
+Choose a configuration file and point OpenCode AI at it (many setups keep the active config at `opencode.json` locally):
+
+This repository includes `opencode.mixed.json` and `opencode.openai.json` (OpenAI-model variant).
 
 ```bash
 # Validate the configuration
-cat opencode.json | jq . > /dev/null && echo "Valid JSON"
+cat opencode.mixed.json | jq . > /dev/null && echo "Valid JSON"   # or: opencode.openai.json
 ```
 
-The `default_agent` field in `opencode.json` is set to `coding-boss`:
+The `default_agent` field is set to `coding-boss`:
 
 ```json
 {
@@ -674,7 +727,7 @@ You do not need to call `planner`, `implementer`, or `code-reviewer` directly. T
 
 ### Adding a New Agent
 
-1. Add the agent definition to `opencode.json` under `"agent"`:
+1. Add the agent definition to your configuration file (for example: `opencode.mixed.json`, `opencode.openai.json`, or your local `opencode.json`) under `"agent"`:
 
 ```json
 "my-new-agent": {
@@ -725,7 +778,7 @@ To swap a model, update the `model` field for the relevant agent:
 
 The routing logic lives in the `prompt` field of `coding-boss` and `docs`. To change how tasks are classified:
 
-1. Edit the relevant `prompt` in `opencode.json`
+1. Edit the relevant `prompt` in your configuration file
 2. Preserve the HANDOVER contract formats — downstream agents parse these structurally
 3. Preserve the task allow-list entries for any agent you want to remain routable
 4. Test with representative tasks across each routing branch
