@@ -58,7 +58,7 @@ Four model tiers are used, selected on the principle: **use the cheapest model t
 - **Mode:** Primary (default entry point)
 - **Color:** `#BEEE62`
 
-`coding-boss` is the default agent for all coding tasks. It classifies the incoming request and delegates; it never writes code, but it does write/update handoff artifacts under `.opencode/handoffs/`.
+`coding-boss` is the default agent for all coding tasks. It classifies the incoming request and delegates; it never writes code, but it does write/update session artifacts under `.opencode/sessions/<session_id>/handoffs/` and `.opencode/sessions/<session_id>/results/`.
 
 **Routing decision tree:**
 
@@ -103,7 +103,7 @@ Incoming coding task
 }
 ```
 
-`coding-boss` operates on an explicit task allow-list. It cannot delegate to any agent not listed. Its file access is intended for maintaining `.opencode/handoffs/*` artifacts only.
+`coding-boss` operates on an explicit task allow-list. It cannot delegate to any agent not listed. Its file access is intended for maintaining `.opencode/sessions/<session_id>/{handoffs,results}/*` artifacts only.
 
 ---
 
@@ -115,7 +115,7 @@ Incoming coding task
 - **Mode:** Primary
 - **Color:** `#D74E09`
 
-`docs` is the entry point for all documentation work. Like `coding-boss`, it never writes documentation itself — it classifies and delegates, and maintains `.opencode/handoffs/*` artifacts.
+`docs` is the entry point for all documentation work. Like `coding-boss`, it never writes documentation itself — it classifies and delegates, and maintains `.opencode/sessions/<session_id>/{handoffs,results}/*` artifacts.
 
 **Planner-first policy:** Unless the request is a trivial wording fix, typo correction, or formatting cleanup with an obvious target file, `docs` routes to `docs-planner` first. File reading alone is not sufficient justification to skip planning — if understanding requires reading multiple files or synthesizing behavior, `docs-planner` must run first.
 
@@ -396,11 +396,11 @@ This means `coding-boss` **can only delegate to the four agents listed in its al
 | `docs-reviewer` | deny | deny |
 | `agent-architect` | deny | deny |
 
-\* Intended for maintaining `.opencode/handoffs/*` only.
+\* Intended for maintaining `.opencode/sessions/<session_id>/{handoffs,results}/*` only.
 
 **Why routing, planning, and review agents are (mostly) write-denied:**
 
-Planning and review agents exist to make decisions, not to implement. Write-denial prevents "fixing while planning" and blurring the line between review and implementation. Routing/orchestration agents are the exception: they maintain handoff artifacts under `.opencode/handoffs/*` but should not touch the rest of the repo.
+Planning and review agents exist to make decisions, not to implement. Write-denial prevents "fixing while planning" and blurring the line between review and implementation. Routing/orchestration agents are the exception: they maintain session artifacts under `.opencode/sessions/<session_id>/{handoffs,results}/*` but should not touch the rest of the repo.
 
 ### 3. `bash` — Shell access
 
@@ -424,7 +424,7 @@ User
   │
   ▼
 coding-boss  [claude-sonnet-4-6]
-  │  Routes task; maintains `.opencode/handoffs/*`
+  │  Routes task; maintains `.opencode/sessions/<session_id>/{handoffs,results}/*`
   │
   ├─ NOT implementation-ready
   │     │
@@ -477,7 +477,7 @@ User
   │
   ▼
 docs  [claude-haiku-4-5]
-  │  Routes task; maintains `.opencode/handoffs/*`
+  │  Routes task; maintains `.opencode/sessions/<session_id>/{handoffs,results}/*`
   │
   ├─ AGENTS.md / multi-agent workflow design
   │     │
@@ -562,7 +562,7 @@ coding-boss  [openai/gpt-5.2]
 
 ### Handoff Artifacts (JSON Contract)
 
-This repo's cross-agent contract is an on-disk, schema-validated JSON handoff artifact written by the routing/orchestration agent (for example: `coding-boss`, `docs`) to `.opencode/handoffs/<iso8601-utc>-<from>-to-<to>.json`.
+This repo's cross-agent contract is an on-disk, schema-validated JSON handoff artifact written by the routing/orchestration agent (for example: `coding-boss`, `docs`) and stored under a session folder: `.opencode/sessions/<session_id>/handoffs/`.
 
 The `=== HANDOVER ... ===` blocks shown in prompts and examples are a human-readable convention; the machine-validated structure is the JSON artifact itself.
 
@@ -571,17 +571,41 @@ Canonical schemas:
 - `.opencode/schemas/handoff.schema.json` (what a handoff artifact must contain)
 - `.opencode/schemas/result.schema.json` (required structured result objects execution/review agents must return)
 
+#### Session Storage Layout
+
+- Handoffs: `.opencode/sessions/<session_id>/handoffs/`
+- Results: `.opencode/sessions/<session_id>/results/`
+
+Sessions prevent filename clashes across concurrent runs and give you a single folder to archive, share, or delete.
+
+#### Human-Readable IDs
+
+- `session_id` is the primary human-facing identifier. Prefer a ULID (time-sortable, globally unique, offline-generatable).
+- Within a session, use a monotonic zero-padded sequence as the primary per-artifact handle: `0001`, `0002`, ...
+
+When referencing artifacts in chat/issues, prefer: `session <session_id>, handoff <seq>`.
+
+#### Handoff and Result Filename Patterns
+
+- Handoff: `.opencode/sessions/<session_id>/handoffs/<seq>-<from>-to-<to>[-<slug>].json`
+- Result: `.opencode/sessions/<session_id>/results/<seq>-<result_type>-<agent>[-<slug>].json`
+
+The optional `-<slug>` is for scanability only; it must not be required for uniqueness.
+
+#### Metadata and Traceability
+
+ISO timestamps stay in JSON metadata fields (for example: `created_at`) for auditability/traceability, but are no longer the main filename/ID humans read daily.
+
 At minimum, handoff artifacts include required top-level fields like `version`, `kind`, `handoff_id`, `parent_handoff_id`, `from_agent`, `to_agent`, `created_at`, `status`, and a `payload` with fields like `goal`, `why`, `files_to_modify`, `changes`, and acceptance/abort criteria.
 
-Example filename shape:
-
-- `.opencode/handoffs/2026-03-16T18-31-00Z-coding-boss-to-planner.json`
-
-Result artifacts are also persisted under `.opencode/handoffs/` so the orchestrator can route follow-on work and return a machine-validated final artifact:
-
-- `.opencode/handoffs/<iso8601-utc>-result-<agent>.json` (example: `.opencode/handoffs/2026-03-17T00-30-00Z-result-docs-reviewer.json`)
-
 `source_handoff_id` links the result JSON back to the handoff that triggered that agent execution.
+
+#### Referencing Examples
+
+- `.opencode/sessions/01JNZ2D0R3R7J5M2G7V8Q9K2C1/handoffs/0001-router-to-planner.json`
+- `.opencode/sessions/01JNZ2D0R3R7J5M2G7V8Q9K2C1/results/0001-docs_result-docs-writer-fast.json`
+- Reference: session `01JNZ2D0R3R7J5M2G7V8Q9K2C1`, handoff `0001`
+- Optional slug: `.opencode/sessions/01JNZ2D0R3R7J5M2G7V8Q9K2C1/handoffs/0002-docs-router-to-docs-planner-id-convention.json`
 
 Minimal paired example (handoff + result):
 
@@ -589,7 +613,7 @@ Minimal paired example (handoff + result):
 {
   "version": 1,
   "kind": "docs_plan",
-  "handoff_id": "docs-2026-03-17T00:00:00Z-01",
+  "handoff_id": "01JNZ2D0R3R7J5M2G7V8Q9K2C1-0001",
   "parent_handoff_id": null,
   "from_agent": "docs",
   "to_agent": "docs-writer-fast",
@@ -616,7 +640,7 @@ Minimal paired example (handoff + result):
   "version": 1,
   "result_type": "docs_result",
   "agent": "docs-writer-fast",
-  "source_handoff_id": "docs-2026-03-17T00:00:00Z-01",
+  "source_handoff_id": "01JNZ2D0R3R7J5M2G7V8Q9K2C1-0001",
   "created_at": "2026-03-17T00:05:00Z",
   "status": "done",
   "summary": "Updated workflow docs to require result artifacts",
@@ -728,14 +752,14 @@ The routing logic lives in the `prompt` field of `coding-boss` and `docs`. To ch
 3. Preserve the task allow-list entries for any agent you want to remain routable
 4. Test with representative tasks across each routing branch
 
-The orchestrator owns persistence/recording of both artifact types under `.opencode/handoffs/`: handoff artifacts it writes, and result artifacts returned by subagents.
+The orchestrator owns persistence/recording of both artifact types under `.opencode/sessions/<session_id>/{handoffs,results}/`: handoff artifacts it writes, and result artifacts returned by subagents.
 
 ---
 
 ## Security & Cost Considerations
 
 **Security:**
-- Routing/orchestration agents can write/edit, but should only touch `.opencode/handoffs/*` (and that directory is typically gitignored)
+- Routing/orchestration agents can write/edit, but should only touch `.opencode/sessions/<session_id>/{handoffs,results}/*` (and that directory is typically gitignored)
 - Never grant `write` or `edit` permissions to planner or reviewer agents; doing so undermines the separation of decision and action
 - `coding-boss` uses an explicit task allow-list (`"*": "deny"`) — it cannot spontaneously delegate to arbitrary agents
 - Review `bash` permissions carefully when adding new agents; `ask` is safer than `allow` for agents that should not run commands autonomously
