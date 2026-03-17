@@ -566,10 +566,25 @@ This repo's cross-agent contract is an on-disk, schema-validated JSON handoff ar
 
 The `=== HANDOVER ... ===` blocks shown in prompts and examples are a human-readable convention; the machine-validated structure is the JSON artifact itself.
 
+#### Router Output vs. Persisted Artifacts (Dual Contract)
+
+- Persisted artifacts under `.opencode/sessions/<session_id>/{handoffs,results}/*` are the canonical machine-readable trace.
+- Router chat output is the canonical user-facing experience: brief phase-boundary status updates, then a final human-readable outcome summary derived from the persisted result artifact.
+- Routers should include an artifact reference for traceability, but must never reply with only an artifact path.
+
+Concrete expected final message shape:
+
+```
+Done: Updated router prompts so users see status updates + a final outcome summary.
+Trace: session <session_id>, final result .opencode/sessions/<session_id>/results/<seq>-<result_type>-<agent>.json
+```
+
 Canonical schemas:
 
 - `.opencode/schemas/handoff.schema.json` (what a handoff artifact must contain)
 - `.opencode/schemas/result.schema.json` (required structured result objects execution/review agents must return)
+
+If you use the multi-agent/agent-flow configs, keep `.opencode/schemas/` in place (including both files above). The routing/orchestration prompts reference these schemas as the canonical contract; without them, orchestration cannot validate or persist handoffs/results reliably.
 
 #### Session Storage Layout
 
@@ -664,15 +679,15 @@ This repository includes `opencode.mixed.json` and `opencode.openai.json` (OpenA
 cat opencode.mixed.json | jq . > /dev/null && echo "Valid JSON"   # or: opencode.openai.json
 ```
 
-The `default_agent` field is set to `coding-boss`:
+The `default_agent` field is set to `docs`:
 
 ```json
 {
-  "default_agent": "coding-boss"
+  "default_agent": "docs"
 }
 ```
 
-This means any coding task submitted without an explicit agent selection routes through `coding-boss` automatically.
+This means any task submitted without an explicit agent selection routes through `docs` automatically (for code changes, call `coding-boss` explicitly).
 
 **Entry points:**
 - `coding-boss` — for all code changes, bug fixes, refactors, and implementations
