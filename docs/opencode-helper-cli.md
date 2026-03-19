@@ -253,6 +253,73 @@ When `sudo` is required, it shall apply only to writing the installed binary int
 Depends on:
 - [REQ-F-012](#req-f-012)
 
+#### <a id="req-f-015"></a>REQ-F-015 - Release Bundle Installation Source
+
+The installer wizard (`opencode-helper-install`) shall install official helper releases by fetching versioned release assets from GitHub Releases rather than copying repo-local files.
+
+The default install target shall be the latest supported GitHub release.
+
+The installed release bundle shall contain:
+- the `opencode-helper` executable entrypoint
+- all officially supported bundled config presets for that release
+- the official bundled inter-agent schemas for that release
+- release metadata sufficient to report installed release provenance
+
+Depends on:
+- [DEC-001](#dec-001)
+- [REQ-F-001](#req-f-001)
+- [REQ-F-002](#req-f-002)
+
+#### <a id="req-f-016"></a>REQ-F-016 - Release Bundle Checksum Verification
+
+Before installing a downloaded release bundle, the installer wizard (`opencode-helper-install`) shall verify the bundle checksum against a checksum manifest published with the same GitHub release.
+
+Verification requirements:
+- the checksum algorithm shall be SHA-256
+- the installer shall fail closed if the checksum manifest is missing, unreadable, lacks a matching bundle entry, or the computed checksum does not match the published checksum
+- no bundle contents shall be activated for use if checksum verification fails
+
+Depends on:
+- [REQ-F-015](#req-f-015)
+
+#### <a id="req-f-017"></a>REQ-F-017 - Release Selection and Discovery
+
+The installer wizard (`opencode-helper-install`) shall install the latest supported release by default and shall also support explicit installation of a user-selected older release tag.
+
+At minimum, the installer shall support:
+- default latest-release installation behavior
+- a non-interactive release selection flag such as `--version <tag>`
+- a way for users to discover installable releases before selecting one
+
+Depends on:
+- [REQ-F-015](#req-f-015)
+
+#### <a id="req-f-018"></a>REQ-F-018 - Installed Release Visibility and Update Awareness
+
+The installer wizard (`opencode-helper-install`) and the helper CLI shall make the installed release visible to the user.
+
+At minimum:
+- the installer shall print the target release before installation and the active installed release after installation
+- the helper CLI shall report the installed release tag together with bundled asset provenance metadata
+- the helper CLI should indicate whether the active release is the latest supported release when network access is available for that check
+
+Depends on:
+- [REQ-F-015](#req-f-015)
+- [REQ-F-009](#req-f-009)
+
+#### <a id="req-f-019"></a>REQ-F-019 - Side-by-Side Versioned Installs and Rollback
+
+The installer wizard (`opencode-helper-install`) shall install each helper release into a versioned side-by-side location and activate one release via a stable `current` symlink or equivalent indirection.
+
+Rollback requirements:
+- installing a newer release shall not require deleting previously installed releases by default
+- activation of the selected release shall update the stable launcher/symlink to the chosen versioned install root
+- users shall be able to revert to an already installed older release without re-downloading assets if that older release remains present locally
+
+Depends on:
+- [REQ-F-015](#req-f-015)
+- [REQ-F-017](#req-f-017)
+
 ### Non-Functional Requirements
 
 #### <a id="req-nf-001"></a>REQ-NF-001 - Minimal Footprint
@@ -300,6 +367,25 @@ Requirements:
   - `--no-color` disables ANSI colors.
   - `--ascii` disables Unicode icons (and uses ASCII-only prefixes such as `[ok]`, `[warn]`, `[err]`, `[?]`, `[i]`).
 - When stdout is not a TTY (e.g. piped output / CI logs), color and Unicode icons should be disabled by default.
+
+#### <a id="req-nf-008"></a>REQ-NF-008 - Deterministic Release Packaging
+
+Each published helper release shall produce a deterministic release bundle, release metadata manifest, and checksum manifest from the tagged source tree used for that release.
+
+The release packaging process shall ensure that the bundled helper executable, presets, schemas, and provenance metadata all correspond to the same tagged release.
+
+Depends on:
+- [REQ-NF-003](#req-nf-003)
+- [REQ-F-015](#req-f-015)
+- [REQ-F-016](#req-f-016)
+
+#### <a id="req-nf-009"></a>REQ-NF-009 - Auditable Installed Provenance
+
+The installed helper should expose enough local provenance metadata to identify the active release tag, source commit, and bundled asset set without requiring access to the source repository.
+
+Depends on:
+- [REQ-F-018](#req-f-018)
+- [REQ-NF-006](#req-nf-006)
 
 ---
 
@@ -424,8 +510,29 @@ Satisfies:
 - [REQ-F-012](#req-f-012)
 - [REQ-F-013](#req-f-013)
 - [REQ-F-014](#req-f-014)
+- [REQ-F-015](#req-f-015)
+- [REQ-F-016](#req-f-016)
+- [REQ-F-017](#req-f-017)
+- [REQ-F-018](#req-f-018)
+- [REQ-F-019](#req-f-019)
 - [REQ-NF-005](#req-nf-005)
 - [REQ-NF-007](#req-nf-007)
+
+### <a id="feat-010"></a>FEAT-010 - Release Packaging and Provenance
+
+Description:
+- Build and publish deterministic helper release bundles, metadata manifests, and checksum manifests so installer and runtime provenance remain traceable and verifiable
+
+Likely command shape:
+- release pipeline / GitHub Actions workflow
+
+Satisfies:
+- [REQ-F-015](#req-f-015)
+- [REQ-F-016](#req-f-016)
+- [REQ-F-018](#req-f-018)
+- [REQ-NF-003](#req-nf-003)
+- [REQ-NF-008](#req-nf-008)
+- [REQ-NF-009](#req-nf-009)
 
 ---
 
@@ -450,18 +557,31 @@ Satisfies:
 | [REQ-F-012](#req-f-012) | Functional Requirement | [FEAT-009](#feat-009) |
 | [REQ-F-013](#req-f-013) | Functional Requirement | [FEAT-009](#feat-009) |
 | [REQ-F-014](#req-f-014) | Functional Requirement | [FEAT-009](#feat-009) |
+| [REQ-F-015](#req-f-015) | Functional Requirement | [FEAT-009](#feat-009), [FEAT-010](#feat-010), [US-016](#us-016), [US-017](#us-017), [US-018](#us-018), [US-019](#us-019), [US-020](#us-020) |
+| [REQ-F-016](#req-f-016) | Functional Requirement | [FEAT-009](#feat-009), [FEAT-010](#feat-010), [US-016](#us-016), [US-017](#us-017) |
+| [REQ-F-017](#req-f-017) | Functional Requirement | [FEAT-009](#feat-009), [US-018](#us-018), [US-020](#us-020) |
+| [REQ-F-018](#req-f-018) | Functional Requirement | [FEAT-009](#feat-009), [FEAT-010](#feat-010), [US-019](#us-019) |
+| [REQ-F-019](#req-f-019) | Functional Requirement | [FEAT-009](#feat-009), [US-020](#us-020) |
 | [REQ-NF-001](#req-nf-001) | Non-Functional Requirement | [FEAT-001](#feat-001) to [FEAT-008](#feat-008) |
 | [REQ-NF-002](#req-nf-002) | Non-Functional Requirement | [FEAT-001](#feat-001) to [FEAT-007](#feat-007) |
-| [REQ-NF-003](#req-nf-003) | Non-Functional Requirement | [FEAT-008](#feat-008) |
+| [REQ-NF-003](#req-nf-003) | Non-Functional Requirement | [FEAT-008](#feat-008), [FEAT-010](#feat-010) |
 | [REQ-NF-004](#req-nf-004) | Non-Functional Requirement | [FEAT-005](#feat-005), [FEAT-006](#feat-006) |
 | [REQ-NF-005](#req-nf-005) | Non-Functional Requirement | [FEAT-001](#feat-001) to [FEAT-009](#feat-009) |
 | [REQ-NF-006](#req-nf-006) | Non-Functional Requirement | [FEAT-005](#feat-005), [FEAT-007](#feat-007) |
 | [REQ-NF-007](#req-nf-007) | Non-Functional Requirement | [FEAT-009](#feat-009) |
-| [FEAT-009](#feat-009) | Feature | [REQ-F-012](#req-f-012), [REQ-F-013](#req-f-013), [REQ-F-014](#req-f-014), [US-012](#us-012), [US-013](#us-013) |
+| [REQ-NF-008](#req-nf-008) | Non-Functional Requirement | [FEAT-010](#feat-010), [US-016](#us-016) |
+| [REQ-NF-009](#req-nf-009) | Non-Functional Requirement | [FEAT-010](#feat-010), [US-019](#us-019) |
+| [FEAT-009](#feat-009) | Feature | [REQ-F-012](#req-f-012), [REQ-F-013](#req-f-013), [REQ-F-014](#req-f-014), [REQ-F-015](#req-f-015), [REQ-F-016](#req-f-016), [REQ-F-017](#req-f-017), [REQ-F-018](#req-f-018), [REQ-F-019](#req-f-019), [US-012](#us-012), [US-013](#us-013), [US-017](#us-017), [US-018](#us-018), [US-019](#us-019), [US-020](#us-020) |
+| [FEAT-010](#feat-010) | Feature | [REQ-F-015](#req-f-015), [REQ-F-016](#req-f-016), [REQ-F-018](#req-f-018), [REQ-NF-008](#req-nf-008), [REQ-NF-009](#req-nf-009), [US-016](#us-016), [US-019](#us-019) |
 | [US-012](#us-012) | User Story | [FEAT-009](#feat-009), [REQ-F-012](#req-f-012), [REQ-F-014](#req-f-014) |
 | [US-013](#us-013) | User Story | [FEAT-009](#feat-009), [REQ-F-012](#req-f-012), [REQ-F-013](#req-f-013) |
 | [US-014](#us-014) | User Story | [FEAT-009](#feat-009), [REQ-NF-007](#req-nf-007) |
 | [US-015](#us-015) | User Story | [FEAT-009](#feat-009), [REQ-NF-007](#req-nf-007) |
+| [US-016](#us-016) | User Story | [FEAT-010](#feat-010), [REQ-F-015](#req-f-015), [REQ-F-016](#req-f-016), [REQ-NF-008](#req-nf-008) |
+| [US-017](#us-017) | User Story | [FEAT-009](#feat-009), [REQ-F-015](#req-f-015), [REQ-F-016](#req-f-016) |
+| [US-018](#us-018) | User Story | [FEAT-009](#feat-009), [REQ-F-017](#req-f-017) |
+| [US-019](#us-019) | User Story | [FEAT-009](#feat-009), [FEAT-010](#feat-010), [REQ-F-018](#req-f-018), [REQ-NF-009](#req-nf-009) |
+| [US-020](#us-020) | User Story | [FEAT-009](#feat-009), [REQ-F-017](#req-f-017), [REQ-F-019](#req-f-019) |
 
 ---
 
@@ -957,6 +1077,162 @@ Acceptance criteria:
 - Given `opencode-helper-install --no-color`, then output contains no ANSI color escape sequences.
 - Given `opencode-helper-install --ascii`, then output contains no non-ASCII characters.
 - Given stdout is not a TTY, then the installer disables colors and Unicode icons by default.
+
+---
+
+### <a id="us-016"></a>US-016 - Publish deterministic release bundles with metadata and checksums
+
+Priority:
+- P0
+
+Status:
+- Planned
+
+PR:
+- TBD
+
+Type:
+- Release-engineering-facing
+
+Related features:
+- [FEAT-010](#feat-010)
+
+Related requirements:
+- [REQ-F-015](#req-f-015)
+- [REQ-F-016](#req-f-016)
+- [REQ-NF-008](#req-nf-008)
+
+Story:
+- As a maintainer, I want each tagged helper release to publish a deterministic bundle, release metadata manifest, and SHA-256 checksum manifest so that installer downloads are version-locked and verifiable.
+
+Acceptance criteria:
+- Given a tagged helper release, when the release pipeline runs, then it publishes a versioned helper bundle as a GitHub release asset.
+- Given that same tagged release, when the pipeline completes, then the published assets include release metadata identifying at least the release tag and source commit.
+- Given that same tagged release, when the pipeline completes, then the published assets include a SHA-256 checksum manifest that contains the helper bundle checksum.
+
+---
+
+### <a id="us-017"></a>US-017 - Installer fetches and verifies a release bundle before activation
+
+Priority:
+- P0
+
+Status:
+- Planned
+
+PR:
+- TBD
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-009](#feat-009)
+
+Related requirements:
+- [REQ-F-015](#req-f-015)
+- [REQ-F-016](#req-f-016)
+
+Story:
+- As a developer, I want `opencode-helper-install` to fetch an official release bundle and verify its SHA-256 checksum before installation so that I can trust the installed helper assets.
+
+Acceptance criteria:
+- Given no explicit version selection, when `opencode-helper-install` runs successfully, then it downloads the latest supported helper release bundle from GitHub Releases.
+- Given a downloaded bundle and checksum manifest, when the installer verifies the bundle, then installation proceeds only if the SHA-256 checksum matches the published checksum entry.
+- Given a missing checksum manifest, missing bundle entry, or checksum mismatch, when verification runs, then the installer exits non-zero and does not activate the downloaded bundle.
+
+---
+
+### <a id="us-018"></a>US-018 - Installer supports explicit release selection
+
+Priority:
+- P0
+
+Status:
+- Planned
+
+PR:
+- TBD
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-009](#feat-009)
+
+Related requirements:
+- [REQ-F-017](#req-f-017)
+
+Story:
+- As a developer, I want to install a specific helper release instead of always taking latest so that I can pin my environment to a known version when needed.
+
+Acceptance criteria:
+- Given `opencode-helper-install --version <tag>`, when `<tag>` exists as a supported GitHub release, then the installer downloads and installs that exact release.
+- Given `opencode-helper-install --version <tag>`, when `<tag>` does not exist or is not installable, then the installer exits non-zero with a clear error.
+- Users can discover installable releases before making a version choice.
+
+---
+
+### <a id="us-019"></a>US-019 - Installer and helper report active release provenance
+
+Priority:
+- P1
+
+Status:
+- Planned
+
+PR:
+- TBD
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-009](#feat-009)
+- [FEAT-010](#feat-010)
+
+Related requirements:
+- [REQ-F-018](#req-f-018)
+- [REQ-NF-009](#req-nf-009)
+
+Story:
+- As a developer, I want the installer and installed helper to show the active release tag and bundled asset provenance so that I can confirm what version is installed and trace it back to a release.
+
+Acceptance criteria:
+- Given a successful install, when the installer completes, then it prints the target release before install and the active installed release after activation.
+- Given an installed helper release, when I run the helper version-reporting command, then it prints the active release tag and bundled asset provenance metadata.
+- When network access is available for release lookup, the helper may also report whether the active release is the latest supported release.
+
+---
+
+### <a id="us-020"></a>US-020 - Side-by-side installs support local rollback via stable symlink
+
+Priority:
+- P0
+
+Status:
+- Planned
+
+PR:
+- TBD
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-009](#feat-009)
+
+Related requirements:
+- [REQ-F-017](#req-f-017)
+- [REQ-F-019](#req-f-019)
+
+Story:
+- As a developer, I want helper releases to be installed side-by-side and activated through a stable symlink so that I can roll back to an already installed older release quickly.
+
+Acceptance criteria:
+- Given an existing installed helper release, when a newer release is installed, then the older release remains on disk by default.
+- Given multiple installed releases, when the active release changes, then the stable launcher or `current` symlink points to the selected versioned install root.
+- Given an older release is already installed locally, when I choose to reactivate it, then rollback completes without re-downloading the older release bundle.
 
 Template:
 
