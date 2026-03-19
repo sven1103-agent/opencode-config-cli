@@ -203,13 +203,15 @@ Depends on:
 - [REQ-F-003](#req-f-003)
 - [REQ-F-004](#req-f-004)
 
-#### <a id="req-f-012"></a>REQ-F-012 - Interactive Install Wizard
+#### <a id="req-f-012"></a>REQ-F-012 - Install Flow Behavior Matrix
 
-The installer wizard (`opencode-helper-install`) shall provide an interactive install flow that installs `opencode-helper` globally on macOS and Linux.
+The installer wizard (`opencode-helper-install`) shall install `opencode-helper` globally on macOS and Linux with zero prompts in non-interactive contexts (including piped `curl|sh` and `wget|sh`).
 
-The wizard shall:
-- prompt for an install location and suggest safe OS-sensitive defaults
-- detect the active user shell and update `PATH` by editing the correct shell config file
+Prompt behavior:
+- non-interactive mode (`--yes` or non-TTY stdin): no prompts
+- interactive TTY mode: prompt only for install location when default `~/.local/bin` is inconvenient and `--bin-dir` is not provided
+
+The installer shall detect the active user shell and update `PATH` by editing the correct shell config file when shell detection succeeds.
 
 Shell config targets and selection rules:
 - zsh: write `PATH` updates to `~/.zshrc`
@@ -226,7 +228,7 @@ The installer wizard (`opencode-helper-install`) shall support non-interactive i
 - `--yes`
 - `--bin-dir <path>`
 
-In non-interactive mode (`--yes`), the CLI shall not prompt. Shell config choice shall be derived from `$SHELL` using the selection rules in [REQ-F-012](#req-f-012). If `$SHELL` is not set (or does not map to zsh/bash/fish), the command shall exit non-zero without making changes.
+In non-interactive mode (`--yes` or non-TTY stdin), the CLI shall not prompt. Shell config choice shall be derived from `$SHELL` using the selection rules in [REQ-F-012](#req-f-012). If `$SHELL` is unset or unsupported, installation shall continue but PATH file edits shall be skipped with a warning and manual PATH guidance.
 
 Optionally:
 - `--dry-run` (if implemented): print planned actions (install path, sudo/no-sudo decision, shell config file path, and the exact `PATH` line/block to be added/updated) and make no changes; must not request `sudo`.
@@ -282,14 +284,13 @@ Verification requirements:
 Depends on:
 - [REQ-F-015](#req-f-015)
 
-#### <a id="req-f-017"></a>REQ-F-017 - Release Selection and Discovery
+#### <a id="req-f-017"></a>REQ-F-017 - Release Selection
 
 The installer wizard (`opencode-helper-install`) shall install the latest supported release by default and shall also support explicit installation of a user-selected older release tag.
 
 At minimum, the installer shall support:
 - default latest-release installation behavior
-- a non-interactive release selection flag such as `--version <tag>`
-- a way for users to discover installable releases before selecting one
+- a release selection flag `--version <tag>`
 
 Depends on:
 - [REQ-F-015](#req-f-015)
@@ -501,7 +502,7 @@ Satisfies:
 ### <a id="feat-009"></a>FEAT-009 - Install Wizard
 
 Description:
-- Install `opencode-helper` globally with a curl-started interactive wizard that chooses an install location and updates `PATH` by editing the correct shell config
+- Install `opencode-helper` globally with zero-prompt piped install support and TTY-only install-dir prompting when the default path is inconvenient
 
 Likely command shape:
 - `opencode-helper-install`
@@ -987,7 +988,7 @@ Acceptance criteria:
 
 ---
 
-### <a id="us-013"></a>US-013 - Install wizard detects shell and writes PATH updates to correct rc file
+### <a id="us-013"></a>US-013 - Install flow handles shell detection and PATH updates safely
 
 Priority:
 - P0
@@ -1009,7 +1010,7 @@ Related requirements:
 - [REQ-F-013](#req-f-013)
 
 Story:
-- As a developer, I want the install wizard (`opencode-helper-install`) to detect my shell and update the correct shell config so that my PATH is updated reliably on macOS and Linux.
+- As a developer, I want `opencode-helper-install` to detect my shell and update the correct shell config when possible so that PATH setup is reliable while non-interactive installs still complete.
 
 Acceptance criteria:
 - Given the active shell is zsh, when the wizard updates `PATH`, then it writes to `~/.zshrc`.
@@ -1017,7 +1018,7 @@ Acceptance criteria:
 - Given the active shell is bash on Linux, when the wizard updates `PATH`, then it writes to the first match in order: `~/.bashrc` (if exists), else `~/.bash_profile` (if exists), else creates and writes `~/.bashrc`.
 - Given the active shell is fish, when the wizard updates `PATH`, then it writes to `~/.config/fish/config.fish`.
 - Given `SHELL` is set to a supported shell, when running `opencode-helper-install --yes --bin-dir <path>`, then the install completes without prompts and updates the shell config derived from `SHELL`.
-- Given `SHELL` is unset (or unsupported), when running `opencode-helper-install --yes --bin-dir <path>`, then the command exits non-zero without making changes.
+- Given `SHELL` is unset (or unsupported), when running `opencode-helper-install --yes --bin-dir <path>`, then the install succeeds, skips shell config edits, and prints manual PATH instructions.
 
 ---
 
@@ -1149,7 +1150,7 @@ Priority:
 - P0
 
 Status:
-- Planned
+- Done
 
 PR:
 - TBD
@@ -1167,8 +1168,7 @@ Story:
 - As a developer, I want `opencode-helper-install` to let me choose which helper release to install (defaulting to latest) so that I can pin my environment to a known version when needed.
 
 Acceptance criteria:
-- Given an interactive terminal and no explicit version selection, when `opencode-helper-install` runs, then it shows a list of installable releases and lets the user choose one, defaulting to the latest supported release.
-- Given a non-interactive environment (or `--yes`) and no explicit version selection, when `opencode-helper-install` runs, then it installs the latest supported helper release.
+- Given no explicit version selection, when `opencode-helper-install` runs in either interactive or non-interactive mode, then it installs the latest supported helper release by default.
 - Given `opencode-helper-install --version <tag>`, when `<tag>` exists as a supported GitHub release, then the installer downloads and installs that exact release.
 - Given `opencode-helper-install --version <tag>`, when `<tag>` does not exist or is not installable, then the installer exits non-zero with a clear error.
 
