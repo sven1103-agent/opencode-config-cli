@@ -614,7 +614,7 @@ Status:
 - Done
 
 PR:
-- #12
+- https://github.com/sven1103-agent/opencode-agents/pull/12
 
 Type:
 - User-facing
@@ -645,7 +645,7 @@ Status:
 - Done
 
 PR:
-- #12
+- https://github.com/sven1103-agent/opencode-agents/pull/12
 
 Type:
 - User-facing
@@ -679,7 +679,7 @@ Status:
 - Done
 
 PR:
-- #12
+- https://github.com/sven1103-agent/opencode-agents/pull/12
 
 Type:
 - User-facing
@@ -711,7 +711,7 @@ Status:
 - Done
 
 PR:
-- #12
+- https://github.com/sven1103-agent/opencode-agents/pull/12
 
 Type:
 - User-facing
@@ -742,7 +742,7 @@ Status:
 - Done
 
 PR:
-- #12
+- https://github.com/sven1103-agent/opencode-agents/pull/12
 
 Type:
 - User-facing
@@ -806,7 +806,7 @@ Status:
 - Done
 
 PR:
-- #12
+- https://github.com/sven1103-agent/opencode-agents/pull/12
 
 Type:
 - User-facing
@@ -837,7 +837,7 @@ Status:
 - Done
 
 PR:
-- #12
+- https://github.com/sven1103-agent/opencode-agents/pull/12
 
 Type:
 - User-facing
@@ -868,7 +868,7 @@ Status:
 - Done
 
 PR:
-- #12
+- https://github.com/sven1103-agent/opencode-agents/pull/12
 
 Type:
 - User-facing
@@ -899,7 +899,7 @@ Status:
 - Done
 
 PR:
-- #12
+- https://github.com/sven1103-agent/opencode-agents/pull/12
 
 Type:
 - User-facing
