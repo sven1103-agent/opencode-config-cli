@@ -611,10 +611,10 @@ Priority:
 - P0
 
 Status:
-- Planned
+- Done
 
 PR:
-- TBD
+- #12
 
 Type:
 - User-facing
@@ -642,10 +642,10 @@ Priority:
 - P0
 
 Status:
-- Planned
+- Done
 
 PR:
-- TBD
+- #12
 
 Type:
 - User-facing
@@ -676,10 +676,10 @@ Priority:
 - P0
 
 Status:
-- Planned
+- Done
 
 PR:
-- TBD
+- #12
 
 Type:
 - User-facing
@@ -708,10 +708,10 @@ Priority:
 - P0
 
 Status:
-- Planned
+- Done
 
 PR:
-- TBD
+- #12
 
 Type:
 - User-facing
@@ -739,10 +739,10 @@ Priority:
 - P0
 
 Status:
-- Planned
+- Done
 
 PR:
-- TBD
+- #12
 
 Type:
 - User-facing
@@ -803,10 +803,10 @@ Priority:
 - P0
 
 Status:
-- Planned
+- Done
 
 PR:
-- TBD
+- #12
 
 Type:
 - User-facing
@@ -834,10 +834,10 @@ Priority:
 - P0
 
 Status:
-- Planned
+- Done
 
 PR:
-- TBD
+- #12
 
 Type:
 - User-facing
@@ -865,10 +865,10 @@ Priority:
 - P0
 
 Status:
-- Planned
+- Done
 
 PR:
-- TBD
+- #12
 
 Type:
 - User-facing
@@ -896,10 +896,10 @@ Priority:
 - P1
 
 Status:
-- Planned
+- Done
 
 PR:
-- TBD
+- #12
 
 Type:
 - User-facing
