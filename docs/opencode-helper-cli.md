@@ -316,6 +316,7 @@ Rollback requirements:
 - installing a newer release shall not require deleting previously installed releases by default
 - activation of the selected release shall update the stable launcher/symlink to the chosen versioned install root
 - users shall be able to revert to an already installed older release without re-downloading assets if that older release remains present locally
+- helper CLI shall expose `opencode-helper release use <tag>` to reactivate an already installed local release without network access
 
 Depends on:
 - [REQ-F-015](#req-f-015)
@@ -506,6 +507,7 @@ Description:
 
 Likely command shape:
 - `opencode-helper-install`
+- `opencode-helper release use <tag>`
 
 Satisfies:
 - [REQ-F-012](#req-f-012)
@@ -1267,7 +1269,7 @@ Story:
 Acceptance criteria:
 - Given an existing installed helper release, when a newer release is installed, then the older release remains on disk by default.
 - Given multiple installed releases, when the active release changes, then the stable launcher or `current` symlink points to the selected versioned install root.
-- Given an older release is already installed locally, when I choose to reactivate it, then rollback completes without re-downloading the older release bundle.
+- Given an older release is already installed locally, when I run `opencode-helper release use <tag>`, then rollback completes without re-downloading the older release bundle.
 
 Template:
 

@@ -253,6 +253,7 @@ Commands:
   init
   preset list
   preset use <name>
+  release use <tag>
   schema install
   validate
   version
@@ -270,6 +271,15 @@ Exit codes:
   2 required files missing
   3 drift detected
   4 overwrite blocked
+EOF
+}
+
+usage_release_use() {
+  cat <<EOF
+release use - reactivate an already installed local release
+
+Usage:
+  $(command_name) release use <tag>
 EOF
 }
 
@@ -486,6 +496,105 @@ cmd_validate() {
   return "$EXIT_OK"
 }
 
+helper_installed_release_root() {
+  release_root=$(CDPATH= cd "$SCRIPT_DIR/.." 2>/dev/null && pwd) || return 1
+  release_parent=$(dirname "$release_root")
+  if [ "$(basename "$release_parent")" != "releases" ]; then
+    return 1
+  fi
+  printf '%s\n' "$release_root"
+}
+
+helper_install_home_from_context() {
+  release_root=$1
+  printf '%s\n' "$(dirname "$(dirname "$release_root")")"
+}
+
+helper_platform() {
+  if [ "${OPENCODE_HELPER_TEST_PLATFORM:-}" != "" ]; then
+    printf '%s\n' "$OPENCODE_HELPER_TEST_PLATFORM"
+    return 0
+  fi
+  uname -s 2>/dev/null || printf unknown
+}
+
+activate_release_current_symlink() {
+  install_home=$1
+  release_dir=$2
+
+  current_path="$install_home/current"
+  current_tmp="$install_home/current.tmp.$$"
+
+  ln -s "$release_dir" "$current_tmp" || {
+    err "failed to create staged current symlink"
+    return "$EXIT_ERR"
+  }
+  if [ "$(helper_platform)" = "Darwin" ]; then
+    mv -f -h "$current_tmp" "$current_path" || {
+      err "failed to activate current release symlink"
+      rm -f "$current_tmp"
+      return "$EXIT_ERR"
+    }
+  else
+    if [ -e "$current_path" ] || [ -L "$current_path" ]; then
+      if [ -d "$current_path" ] && [ ! -L "$current_path" ]; then
+        err "refusing to replace non-symlink current directory: $current_path"
+        rm -f "$current_tmp"
+        return "$EXIT_ERR"
+      fi
+      rm -f "$current_path" || {
+        err "failed to clear existing current symlink"
+        rm -f "$current_tmp"
+        return "$EXIT_ERR"
+      }
+    fi
+    mv -f "$current_tmp" "$current_path" || {
+      err "failed to activate current release symlink"
+      rm -f "$current_tmp"
+      return "$EXIT_ERR"
+    }
+  fi
+
+  return "$EXIT_OK"
+}
+
+cmd_release_use() {
+  release_tag=$1
+
+  [ -n "$release_tag" ] || {
+    err "release use requires a release tag"
+    usage_release_use
+    return "$EXIT_ERR"
+  }
+
+  current_release_root=$(helper_installed_release_root) || {
+    err "release use is only available from an installed helper bundle"
+    return "$EXIT_ERR"
+  }
+
+  install_home=$(helper_install_home_from_context "$current_release_root")
+  target_release="$install_home/releases/$release_tag"
+  target_helper="$target_release/scripts/opencode-helper"
+  target_manifest="$target_release/release-manifest.json"
+
+  [ -d "$target_release" ] || {
+    err "requested release is not installed locally: $release_tag"
+    return "$EXIT_MISSING"
+  }
+  [ -x "$target_helper" ] || {
+    err "installed release is missing helper executable: $target_helper"
+    return "$EXIT_DRIFT"
+  }
+  [ -f "$target_manifest" ] || {
+    err "installed release is missing release-manifest.json: $target_manifest"
+    return "$EXIT_DRIFT"
+  }
+
+  activate_release_current_symlink "$install_home" "$target_release" || return $?
+  log "ok: active installed release: $release_tag"
+  return "$EXIT_OK"
+}
+
 parse_common_flags() {
   project_root=$PWD
   preset_name=mixed
@@ -599,6 +708,22 @@ case "$cmd" in
         ;;
       *)
         err "unknown preset command: ${sub:-}"; usage; exit "$EXIT_ERR"
+        ;;
+    esac
+    ;;
+  release)
+    sub=${1:-}
+    [ "$#" -gt 0 ] && shift
+    case "$sub" in
+      use)
+        release_tag=${1:-}
+        [ "$#" -gt 0 ] && shift
+        [ "$#" -eq 0 ] || { err "release use accepts no flags"; usage_release_use; exit "$EXIT_ERR"; }
+        cmd_release_use "$release_tag"
+        exit $?
+        ;;
+      *)
+        err "unknown release command: ${sub:-}"; usage; exit "$EXIT_ERR"
         ;;
     esac
     ;;
