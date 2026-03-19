@@ -13,15 +13,23 @@ fail() {
 assert_file_contains() {
   file=$1
   text=$2
-  [ -f "$file" ] || fail "missing file: $file"
-  grep -F "$text" "$file" >/dev/null 2>&1 || fail "expected '$text' in $file"
+  if [ ! -f "$file" ]; then
+    fail "missing file: $file"
+  fi
+  if ! grep -F "$text" "$file" >/dev/null 2>&1; then
+    fail "expected '$text' in $file"
+  fi
 }
 
 assert_file_not_contains() {
   file=$1
   text=$2
-  [ -f "$file" ] || return 0
-  grep -F "$text" "$file" >/dev/null 2>&1 && fail "did not expect '$text' in $file"
+  if [ ! -f "$file" ]; then
+    return 0
+  fi
+  if grep -F "$text" "$file" >/dev/null 2>&1; then
+    fail "did not expect '$text' in $file"
+  fi
 }
 
 make_home() {
@@ -111,8 +119,8 @@ test_fish_config_creation() {
 test_yes_shell_missing_no_changes() {
   home=$(make_home)
   status=0
-  sh -c 'unset SHELL; HOME="$1" sh "$2" --yes --bin-dir "$1/bin" >/dev/null 2>&1' _ "$home" "$INSTALLER" || status=$?
-  [ "$status" -ne 0 ] || fail "expected non-zero exit when SHELL is unset"
+  HOME="$home" SHELL="" sh "$INSTALLER" --yes --bin-dir "$home/bin" >/dev/null 2>&1 || status=$?
+  [ "$status" -ne 0 ] || fail "expected non-zero exit when SHELL is empty"
   [ -z "$(ls -A "$home")" ] || fail "expected no filesystem changes when SHELL unset"
 }
 
