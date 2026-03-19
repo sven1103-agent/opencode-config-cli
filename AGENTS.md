@@ -16,6 +16,8 @@ Primary repo contents:
 - Keep changes aligned with the repo's planning-first, schema-validated workflow
 - Preserve the role of `.opencode/schemas/handoff.schema.json` and `.opencode/schemas/result.schema.json` as the local canonical artifact contracts for this repo
 - Prefer additive, traceable documentation changes over informal notes scattered across files
+- Treat traceability as a first-class requirement: when a PR implements a user story, start the title with `US-###`, include `Implements: US-###` in the PR body, and update the source story in `docs/opencode-helper-cli.md` with `Status: Done` plus the PR link or number
+- For multi-agent work, keep handoffs and results traceable through the session artifact workflow under `.opencode/sessions/` and validate those artifacts against `.opencode/schemas/handoff.schema.json` and `.opencode/schemas/result.schema.json`
 - Treat helper CLI planning in `docs/opencode-helper-cli.md` as the source of truth for requirements, features, and later user stories
 - Avoid changing unrelated session artifacts under `.opencode/sessions/`
 
