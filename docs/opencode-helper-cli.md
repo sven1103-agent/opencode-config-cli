@@ -1086,10 +1086,10 @@ Priority:
 - P0
 
 Status:
-- In review
+- Done
 
 PR:
-- TBD
+- #24
 
 Type:
 - Release-engineering-facing
