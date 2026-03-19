@@ -1164,12 +1164,13 @@ Related requirements:
 - [REQ-F-017](#req-f-017)
 
 Story:
-- As a developer, I want to install a specific helper release instead of always taking latest so that I can pin my environment to a known version when needed.
+- As a developer, I want `opencode-helper-install` to let me choose which helper release to install (defaulting to latest) so that I can pin my environment to a known version when needed.
 
 Acceptance criteria:
+- Given an interactive terminal and no explicit version selection, when `opencode-helper-install` runs, then it shows a list of installable releases and lets the user choose one, defaulting to the latest supported release.
+- Given a non-interactive environment (or `--yes`) and no explicit version selection, when `opencode-helper-install` runs, then it installs the latest supported helper release.
 - Given `opencode-helper-install --version <tag>`, when `<tag>` exists as a supported GitHub release, then the installer downloads and installs that exact release.
 - Given `opencode-helper-install --version <tag>`, when `<tag>` does not exist or is not installable, then the installer exits non-zero with a clear error.
-- Users can discover installable releases before making a version choice.
 
 ---
 
