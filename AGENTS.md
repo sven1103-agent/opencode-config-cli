@@ -15,9 +15,11 @@ Primary repo contents:
 
 ## Preflight (Required)
 
-Before making any changes in this repo:
-- Confirm you are not on `main` in the primary worktree.
-- If the current branch is `main`, stop and propose: branch name, worktree path, and base branch (`origin/main`), then wait for explicit user confirmation.
+Before doing any substantive work for a new user story or implementation task in this repo:
+- If the request is read-only (analysis, planning, review, explanation), stay in the current workspace and do not create a worktree.
+- Otherwise, treat the request as a new unit of work and create a dedicated branch + worktree immediately, even if the current branch is not `main`.
+- Never implement a new user story in an existing branch/worktree that was created for a different task.
+- First propose: branch name, worktree path, and base branch (`origin/main`), then wait for explicit user confirmation.
 - Run: `git fetch` and `git worktree list` (avoid duplicate worktrees).
 - Create the worktree: `git worktree add ".worktrees/<branch>" -b "<branch>" origin/main`.
 - Run all subsequent commands with `workdir=.worktrees/<branch>`.
@@ -33,9 +35,12 @@ Before making any changes in this repo:
 ## Git Worktrees (Branch + Worktree Per PR)
 
 - Default: every task/change is done in its own branch and its own git worktree, and results in its own PR (even single-file changes)
+- Trigger: create the branch/worktree as soon as the request becomes a new implementation unit of work, not only when the current branch happens to be `main`
 - Never do feature work directly on `main`
+- Never reuse an existing branch/worktree for a different user story or unrelated implementation task
 - Worktree location convention: `.worktrees/<branch>/` (repo-local)
 - Workflow:
+  - For read-only requests, stay in the current workspace
   - `git fetch`
   - `git worktree list` (avoid duplicates)
   - Create a new branch worktree from `origin/main`: `git worktree add ".worktrees/<branch>" -b "<branch>" origin/main`
