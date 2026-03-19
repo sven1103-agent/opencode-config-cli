@@ -21,6 +21,19 @@ Primary repo contents:
 - Treat helper CLI planning in `docs/opencode-helper-cli.md` as the source of truth for requirements, features, and later user stories
 - Avoid changing unrelated session artifacts under `.opencode/sessions/`
 
+## Git Worktrees (Branch + Worktree Per PR)
+
+- Default: every task/change is done in its own branch and its own git worktree, and results in its own PR (even single-file changes)
+- Never do feature work directly on `main`
+- Worktree location convention: `.worktrees/<branch>/` (repo-local)
+- Workflow:
+  - `git fetch`
+  - `git worktree list` (avoid duplicates)
+  - Create a new branch worktree from `origin/main`: `git worktree add ".worktrees/<branch>" -b "<branch>" origin/main`
+  - Run subsequent commands using the worktree directory as the working directory (avoid `cd ... &&`)
+- Confirmation gate: before creating a new branch/worktree or pushing/creating a PR, state the planned branch name + worktree path + base branch and wait for explicit user confirmation
+- Cleanup: only remove worktrees when the PR is merged/closed (or the user asks): `git worktree remove ".worktrees/<branch>"`
+
 ## Quick Orientation
 
 - If the task is about agent behavior or configuration presets, inspect `README.md`, `opencode.openai.json`, and `opencode.mixed.json`
