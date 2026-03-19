@@ -67,8 +67,14 @@ assert_symlink_points_to() {
   path=$1
   expected=$2
   [ -L "$path" ] || fail "expected symlink: $path"
+
   actual=$(readlink "$path")
-  [ "$actual" = "$expected" ] || fail "expected symlink $path -> $expected, got $actual"
+
+  # Normalize symlink targets to physical paths to avoid `/var` vs `/private/var`
+  # differences on macOS.
+  expected_phys=$(CDPATH= cd "$expected" 2>/dev/null && pwd -P || printf '%s\n' "$expected")
+  actual_phys=$(CDPATH= cd "$actual" 2>/dev/null && pwd -P || printf '%s\n' "$actual")
+  [ "$actual_phys" = "$expected_phys" ] || fail "expected symlink $path -> $expected_phys, got $actual_phys"
 }
 
 make_home() {
@@ -251,9 +257,10 @@ test_interactive_zsh_smoke() {
   assert_text_contains "$output" "verified SHA-256 for opencode-helper-$TEST_TAG_LATEST.tar.gz"
   assert_text_contains "$output" "active installed release: $TEST_TAG_LATEST"
 
+  tab=$(printf '\t')
   version_output=$($home/bin/opencode-helper version)
-  assert_text_contains "$version_output" "provenance	release_tag	$TEST_TAG_LATEST"
-  assert_text_contains "$version_output" "provenance	commit_sha	$TEST_COMMIT_SHA"
+  assert_text_contains "$version_output" "provenance${tab}release_tag${tab}$TEST_TAG_LATEST"
+  assert_text_contains "$version_output" "provenance${tab}commit_sha${tab}$TEST_COMMIT_SHA"
 
   stop_static_server
 }
@@ -533,6 +540,103 @@ test_post_activation_failure_does_not_repoint_current_or_edit_rc() {
   stop_static_server
 }
 
+test_release_use_rolls_back_offline() {
+  root=$(prepare_release_root valid)
+  start_static_server "$root"
+
+  home=$(make_home)
+  install_home="$home/.local/share/opencode-helper"
+  run_installer_yes "$home" "/bin/zsh" "Linux" "$home/install-old.log" "$SERVER_API_BASE" "$SERVER_DOWNLOAD_BASE" --version "$TEST_TAG_OLD"
+  run_installer_yes "$home" "/bin/zsh" "Linux" "$home/install-latest.log" "$SERVER_API_BASE" "$SERVER_DOWNLOAD_BASE" --version "$TEST_TAG_LATEST"
+
+  [ -d "$install_home/releases/$TEST_TAG_OLD" ] || fail "expected old release install directory"
+  [ -d "$install_home/releases/$TEST_TAG_LATEST" ] || fail "expected latest release install directory"
+  $home/bin/opencode-helper release use "$TEST_TAG_LATEST" >/dev/null 2>&1
+  assert_symlink_points_to "$install_home/current" "$install_home/releases/$TEST_TAG_LATEST"
+
+  stop_static_server
+
+  status=0
+  rollback_output=$($home/bin/opencode-helper release use "$TEST_TAG_OLD" 2>&1) || status=$?
+  [ "$status" -eq 0 ] || fail "expected release use rollback to succeed offline"
+  assert_text_contains "$rollback_output" "ok: active installed release: $TEST_TAG_OLD"
+  assert_symlink_points_to "$install_home/current" "$install_home/releases/$TEST_TAG_OLD"
+
+  tab=$(printf '\t')
+  version_output=$($home/bin/opencode-helper version)
+  assert_text_contains "$version_output" "provenance${tab}release_tag${tab}$TEST_TAG_OLD"
+}
+
+test_release_use_invalid_tag_preserves_current() {
+  root=$(prepare_release_root valid)
+  start_static_server "$root"
+
+  home=$(make_home)
+  install_home="$home/.local/share/opencode-helper"
+  run_installer_yes "$home" "/bin/zsh" "Linux" "$home/install-old.log" "$SERVER_API_BASE" "$SERVER_DOWNLOAD_BASE" --version "$TEST_TAG_OLD"
+  run_installer_yes "$home" "/bin/zsh" "Linux" "$home/install-latest.log" "$SERVER_API_BASE" "$SERVER_DOWNLOAD_BASE" --version "$TEST_TAG_LATEST"
+  $home/bin/opencode-helper release use "$TEST_TAG_LATEST" >/dev/null 2>&1
+  stop_static_server
+
+  current_before=$(readlink "$install_home/current")
+  status=0
+  rollback_output=$($home/bin/opencode-helper release use "v0.0.0-missing" 2>&1) || status=$?
+  [ "$status" -ne 0 ] || fail "expected release use to fail for missing tag"
+  assert_text_contains "$rollback_output" "requested release is not installed locally"
+  current_after=$(readlink "$install_home/current")
+  [ "$current_before" = "$current_after" ] || fail "expected current symlink to remain unchanged"
+}
+
+test_release_use_corrupt_target_preserves_current() {
+  root=$(prepare_release_root valid)
+  start_static_server "$root"
+
+  home=$(make_home)
+  install_home="$home/.local/share/opencode-helper"
+  run_installer_yes "$home" "/bin/zsh" "Linux" "$home/install-old.log" "$SERVER_API_BASE" "$SERVER_DOWNLOAD_BASE" --version "$TEST_TAG_OLD"
+  run_installer_yes "$home" "/bin/zsh" "Linux" "$home/install-latest.log" "$SERVER_API_BASE" "$SERVER_DOWNLOAD_BASE" --version "$TEST_TAG_LATEST"
+  $home/bin/opencode-helper release use "$TEST_TAG_LATEST" >/dev/null 2>&1
+  stop_static_server
+
+  current_before=$(readlink "$install_home/current")
+  rm -f "$install_home/releases/$TEST_TAG_OLD/scripts/opencode-helper"
+
+  status=0
+  rollback_output=$($home/bin/opencode-helper release use "$TEST_TAG_OLD" 2>&1) || status=$?
+  [ "$status" -ne 0 ] || fail "expected release use to fail for corrupt installed release"
+  assert_text_contains "$rollback_output" "installed release is missing helper executable"
+
+  current_after=$(readlink "$install_home/current")
+  [ "$current_before" = "$current_after" ] || fail "expected current symlink to remain unchanged"
+}
+
+test_release_use_non_darwin_symlink_replace_does_not_follow_current() {
+  root=$(prepare_release_root valid)
+  start_static_server "$root"
+
+  home=$(make_home)
+  install_home="$home/.local/share/opencode-helper"
+  run_installer_yes "$home" "/bin/zsh" "Linux" "$home/install-old.log" "$SERVER_API_BASE" "$SERVER_DOWNLOAD_BASE" --version "$TEST_TAG_OLD"
+  run_installer_yes "$home" "/bin/zsh" "Linux" "$home/install-latest.log" "$SERVER_API_BASE" "$SERVER_DOWNLOAD_BASE" --version "$TEST_TAG_LATEST"
+  stop_static_server
+
+  # Ensure `current` points at the old release first so the historical
+  # symlink-following bug would move the staged symlink into the old
+  # release directory.
+  "$home/bin/opencode-helper" release use "$TEST_TAG_OLD" >/dev/null 2>&1 || fail "expected baseline release use to old tag to succeed"
+  assert_symlink_points_to "$install_home/current" "$install_home/releases/$TEST_TAG_OLD"
+
+  OPENCODE_HELPER_TEST_PLATFORM=linux "$home/bin/opencode-helper" release use "$TEST_TAG_LATEST" >/dev/null 2>&1
+  assert_symlink_points_to "$install_home/current" "$install_home/releases/$TEST_TAG_LATEST"
+}
+
+test_release_use_repo_local_invocation_fails() {
+  status=0
+  output=$(sh "$SCRIPT_DIR/opencode-helper" release use "$TEST_TAG_OLD" 2>&1) || status=$?
+  [ "$status" -ne 0 ] || fail "expected repo-local release use invocation to fail"
+  assert_text_contains "$output" "release use is only available from an installed helper bundle"
+}
+
 trap 'stop_static_server' EXIT INT TERM
 
 test_interactive_zsh_smoke
@@ -551,5 +655,10 @@ test_yes_shell_missing_no_changes
 test_yes_shell_unsupported_no_changes
 test_helper_version_works_without_release_manifest
 test_post_activation_failure_does_not_repoint_current_or_edit_rc
+test_release_use_rolls_back_offline
+test_release_use_invalid_tag_preserves_current
+test_release_use_corrupt_target_preserves_current
+test_release_use_non_darwin_symlink_replace_does_not_follow_current
+test_release_use_repo_local_invocation_fails
 
 printf 'PASS: scripts/test-opencode-helper-install\n'
