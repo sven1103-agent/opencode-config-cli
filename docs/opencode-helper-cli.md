@@ -491,10 +491,10 @@ Priority:
 - P0
 
 Status:
-- Done
+- Planned
 
 PR:
-- https://github.com/sven1103-agent/opencode-agents/pull/15
+- TBD
 
 Type:
 - User-facing
@@ -841,10 +841,10 @@ Priority:
 - P0
 
 Status:
-- Planned
+- Done
 
 PR:
-- TBD
+- https://github.com/sven1103-agent/opencode-agents/pull/15
 
 Type:
 - User-facing
