@@ -63,6 +63,7 @@ Current OpenCode project setup depends on repository-local assets and setup know
 
 The helper CLI should let a user:
 - install one official tool
+- install the helper globally and ensure it is available on `PATH`
 - inspect all available presets with a short description of each preset's purpose
 - apply a supported local configuration
 - install required schemas
@@ -73,6 +74,7 @@ The helper CLI should let a user:
 
 V1 is successful when:
 - A user can install the CLI without cloning this repository
+- A user can complete a global install such that `opencode-helper` works in a new terminal session
 - A user can initialize a project from bundled presets and schemas
 - A user can list all bundled presets and understand each preset's purpose before selecting one
 - A user can validate whether the project setup is healthy or drifted
@@ -201,6 +203,56 @@ The CLI shall support an explicit preset-selection flow based on the bundled pre
 Depends on:
 - [REQ-F-003](#req-f-003)
 - [REQ-F-004](#req-f-004)
+
+#### <a id="req-f-012"></a>REQ-F-012 - Interactive Install Wizard
+
+The CLI shall provide an interactive install wizard that installs `opencode-helper` globally on macOS and Linux.
+
+The wizard shall:
+- prompt for an install location and suggest safe OS-sensitive defaults
+- detect the active user shell and update `PATH` by editing the correct shell config file
+
+Shell config targets and selection rules:
+- zsh: write `PATH` updates to `~/.zshrc`
+- bash (macOS): write to the first match in order: `~/.bash_profile` (if exists), else `~/.bashrc` (if exists), else create and write `~/.bash_profile`
+- bash (Linux): write to the first match in order: `~/.bashrc` (if exists), else `~/.bash_profile` (if exists), else create and write `~/.bashrc`
+- fish: write to `~/.config/fish/config.fish` (create parent dir and file if missing)
+
+Depends on:
+- [REQ-NF-005](#req-nf-005)
+
+#### <a id="req-f-013"></a>REQ-F-013 - Non-Interactive Install Flags
+
+The CLI shall support non-interactive install flags suitable for CI/power users, including at least:
+- `--yes`
+- `--bin-dir <path>`
+
+In non-interactive mode (`--yes`), the CLI shall not prompt. Shell config choice shall be derived from `$SHELL` using the selection rules in [REQ-F-012](#req-f-012). If `$SHELL` is not set (or does not map to zsh/bash/fish), the command shall exit non-zero without making changes.
+
+Optionally:
+- `--dry-run` (if implemented): print planned actions (install path, sudo/no-sudo decision, shell config file path, and the exact `PATH` line/block to be added/updated) and make no changes; must not request `sudo`.
+
+Depends on:
+- [REQ-F-012](#req-f-012)
+
+#### <a id="req-f-014"></a>REQ-F-014 - Idempotent Shell Config Edits and Privilege Boundaries
+
+The CLI shall make idempotent shell config edits using stable markers and shall avoid duplicate `PATH` entries.
+
+Shell config edits shall be managed via a single marker block with these exact sentinel lines:
+- `# opencode-helper: BEGIN managed PATH`
+- `# opencode-helper: END managed PATH`
+
+On re-run, if the marker block exists, the CLI shall update the contents within the block in place (and shall not add a second block). The resulting config must include exactly one occurrence of the chosen `--bin-dir` in the `PATH` update it writes.
+
+The CLI shall use `sudo` only when the chosen install directory is privileged. For this requirement, a privileged install directory is any `--bin-dir` that:
+- is under one of: `/usr/local`, `/opt/homebrew`, `/usr/bin`, `/bin`, `/sbin`, `/opt`, or
+- is not writable by the invoking user
+
+When `sudo` is required, it shall apply only to writing the installed binary into the privileged `--bin-dir`; shell config edits shall be performed as the invoking user.
+
+Depends on:
+- [REQ-F-012](#req-f-012)
 
 ### Non-Functional Requirements
 
@@ -348,6 +400,20 @@ Satisfies:
 - [REQ-F-009](#req-f-009)
 - [REQ-NF-003](#req-nf-003)
 
+### <a id="feat-009"></a>FEAT-009 - Install Wizard
+
+Description:
+- Install `opencode-helper` globally with an interactive wizard that chooses an install location and updates `PATH` by editing the correct shell config
+
+Likely command shape:
+- `opencode-helper install`
+
+Satisfies:
+- [REQ-F-012](#req-f-012)
+- [REQ-F-013](#req-f-013)
+- [REQ-F-014](#req-f-014)
+- [REQ-NF-005](#req-nf-005)
+
 ---
 
 ## Traceability Matrix
@@ -355,7 +421,7 @@ Satisfies:
 | ID | Type | Links To |
 |---|---|---|
 | [DEC-001](#dec-001) | Decision | [PRD-001](#prd-001), [REQ-F-001](#req-f-001), [REQ-F-002](#req-f-002), [REQ-F-008](#req-f-008), [REQ-NF-002](#req-nf-002), [REQ-NF-003](#req-nf-003) |
-| [PRD-001](#prd-001) | PRD | [REQ-F-001](#req-f-001) to [REQ-F-011](#req-f-011), [REQ-NF-001](#req-nf-001) to [REQ-NF-006](#req-nf-006) |
+| [PRD-001](#prd-001) | PRD | [REQ-F-001](#req-f-001) to [REQ-F-014](#req-f-014), [REQ-NF-001](#req-nf-001) to [REQ-NF-006](#req-nf-006) |
 | [REQ-F-001](#req-f-001) | Functional Requirement | [FEAT-001](#feat-001), [FEAT-002](#feat-002), [FEAT-003](#feat-003) |
 | [REQ-F-001a](#req-f-001a) | Functional Requirement | [FEAT-001](#feat-001), [FEAT-002](#feat-002) |
 | [REQ-F-002](#req-f-002) | Functional Requirement | [FEAT-001](#feat-001), [FEAT-004](#feat-004) |
@@ -368,12 +434,18 @@ Satisfies:
 | [REQ-F-009](#req-f-009) | Functional Requirement | [FEAT-002](#feat-002), [FEAT-005](#feat-005), [FEAT-007](#feat-007), [FEAT-008](#feat-008) |
 | [REQ-F-010](#req-f-010) | Functional Requirement | [FEAT-001](#feat-001), [FEAT-003](#feat-003), [FEAT-004](#feat-004) |
 | [REQ-F-011](#req-f-011) | Functional Requirement | [FEAT-001](#feat-001), [FEAT-003](#feat-003) |
+| [REQ-F-012](#req-f-012) | Functional Requirement | [FEAT-009](#feat-009) |
+| [REQ-F-013](#req-f-013) | Functional Requirement | [FEAT-009](#feat-009) |
+| [REQ-F-014](#req-f-014) | Functional Requirement | [FEAT-009](#feat-009) |
 | [REQ-NF-001](#req-nf-001) | Non-Functional Requirement | [FEAT-001](#feat-001) to [FEAT-008](#feat-008) |
 | [REQ-NF-002](#req-nf-002) | Non-Functional Requirement | [FEAT-001](#feat-001) to [FEAT-007](#feat-007) |
 | [REQ-NF-003](#req-nf-003) | Non-Functional Requirement | [FEAT-008](#feat-008) |
 | [REQ-NF-004](#req-nf-004) | Non-Functional Requirement | [FEAT-005](#feat-005), [FEAT-006](#feat-006) |
-| [REQ-NF-005](#req-nf-005) | Non-Functional Requirement | [FEAT-001](#feat-001) to [FEAT-008](#feat-008) |
+| [REQ-NF-005](#req-nf-005) | Non-Functional Requirement | [FEAT-001](#feat-001) to [FEAT-009](#feat-009) |
 | [REQ-NF-006](#req-nf-006) | Non-Functional Requirement | [FEAT-005](#feat-005), [FEAT-007](#feat-007) |
+| [FEAT-009](#feat-009) | Feature | [REQ-F-012](#req-f-012), [REQ-F-013](#req-f-013), [REQ-F-014](#req-f-014), [US-012](#us-012), [US-013](#us-013) |
+| [US-012](#us-012) | User Story | [FEAT-009](#feat-009), [REQ-F-012](#req-f-012), [REQ-F-014](#req-f-014) |
+| [US-013](#us-013) | User Story | [FEAT-009](#feat-009), [REQ-F-012](#req-f-012), [REQ-F-013](#req-f-013) |
 
 ---
 
@@ -669,6 +741,60 @@ Story:
 Acceptance criteria:
 - `version` provenance is stable per release.
 - The same release yields identical `preset list` output.
+
+---
+
+### <a id="us-012"></a>US-012 - Install wizard performs global install and updates PATH
+
+Priority:
+- P0
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-009](#feat-009)
+
+Related requirements:
+- [REQ-F-012](#req-f-012)
+- [REQ-F-014](#req-f-014)
+
+Story:
+- As a developer, I want an interactive install wizard that installs `opencode-helper` globally and updates my shell config so that I can run `opencode-helper` from a new terminal without manual PATH steps.
+
+Acceptance criteria:
+- Given `opencode-helper install` installs into an unprivileged `--bin-dir` (e.g. `~/.local/bin`), when the wizard completes, then opening a new terminal session allows running `opencode-helper` successfully without manual `PATH` steps.
+- Given the user selects a privileged `--bin-dir` (e.g. `/usr/local/bin`), when the install step writes the binary, then the flow requests `sudo`; and when the flow edits shell config, then it does not use `sudo`.
+- Given the wizard has been run once, when it is re-run with the same `--bin-dir`, then the shell config contains exactly one managed marker block and the resulting `PATH` update includes the `--bin-dir` exactly once.
+- The shell config file modified contains the exact sentinel lines `# opencode-helper: BEGIN managed PATH` and `# opencode-helper: END managed PATH`.
+
+---
+
+### <a id="us-013"></a>US-013 - Install wizard detects shell and writes PATH updates to correct rc file
+
+Priority:
+- P0
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-009](#feat-009)
+
+Related requirements:
+- [REQ-F-012](#req-f-012)
+- [REQ-F-013](#req-f-013)
+
+Story:
+- As a developer, I want the install wizard to detect my shell and update the correct shell config so that my PATH is updated reliably on macOS and Linux.
+
+Acceptance criteria:
+- Given the active shell is zsh, when the wizard updates `PATH`, then it writes to `~/.zshrc`.
+- Given the active shell is bash on macOS, when the wizard updates `PATH`, then it writes to the first match in order: `~/.bash_profile` (if exists), else `~/.bashrc` (if exists), else creates and writes `~/.bash_profile`.
+- Given the active shell is bash on Linux, when the wizard updates `PATH`, then it writes to the first match in order: `~/.bashrc` (if exists), else `~/.bash_profile` (if exists), else creates and writes `~/.bashrc`.
+- Given the active shell is fish, when the wizard updates `PATH`, then it writes to `~/.config/fish/config.fish`.
+- Given `SHELL` is set to a supported shell, when running `opencode-helper install --yes --bin-dir <path>`, then the install completes without prompts and updates the shell config derived from `SHELL`.
+- Given `SHELL` is unset (or unsupported), when running `opencode-helper install --yes --bin-dir <path>`, then the command exits non-zero without making changes.
 
 Template:
 
