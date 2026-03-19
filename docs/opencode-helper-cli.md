@@ -596,12 +596,24 @@ User stories will be added later and must:
 - identify whether the story is user-facing, maintainer-facing, or release-engineering-facing
 
 Traceability workflow:
-- PRs that implement a user story must reference the story ID in the PR title and body.
-- PR title format: `US-###: <short title>`
-- PR body must contain a line: `Implements: US-###`
-- The implementation PR must update the corresponding story entry in this document:
-  - set `Status: Done`
-  - set `PR: [#<number>](<url>)` (preferred) or `PR: #<number>`
+- Every implementation PR must declare exactly one primary user story.
+- Primary story selection rules (in order):
+  - If the user request names a `US-###`, that is the primary story.
+  - Otherwise, choose the one story whose acceptance criteria the PR is intended to complete end-to-end.
+  - If the change spans multiple stories and none is clearly primary, split into multiple PRs (recommended) or explicitly pick a primary and list the rest as secondary (see below).
+- PR title format (primary story only): `US-###: <short title>`
+- PR body must contain a primary line: `Implements: US-###`
+- If the PR also advances other stories, include additional lines:
+  - `Also advances: US-###, US-###` (optional)
+  - Do not mark secondary stories `Done` unless their acceptance criteria are fully satisfied by this PR.
+- Updating story entries in this document:
+  - Primary story: update the story entry with the PR reference.
+    - If all acceptance criteria are satisfied, set `Status: Done`.
+    - If not all acceptance criteria are satisfied, set `Status: In progress` or `Status: In review` (choose the closest), and keep it out of `Done`.
+  - Secondary stories (if listed): only add the PR reference if the PR is intentionally tracked there; never set `Status: Done` unless fully complete.
+- PR reference format:
+  - Preferred: `PR: [#<number>](<url>)`
+  - Acceptable: `PR: #<number>`
 - Practical: if the PR number/URL is not known yet, open the PR with `PR: TBD`, then update the same PR branch before merge to replace `TBD` with the actual PR reference.
 
 ### User Stories (Iteration 1)

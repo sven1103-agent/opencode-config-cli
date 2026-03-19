@@ -3,12 +3,13 @@
 This PR implements a user story from `docs/opencode-helper-cli.md`.
 
 Required:
-- Title starts with `US-###: ...`
-- Body includes an `Implements: US-###` line
+- Title starts with `US-###: ...` (primary story only)
+- Body includes an `Implements: US-###` line (primary story)
 
 ## Story
 
 Implements: US-###
+Also advances: (optional) US-###, US-###
 PRD: docs/opencode-helper-cli.md#us-###
 
 ## Acceptance Criteria
@@ -26,5 +27,7 @@ PRD: docs/opencode-helper-cli.md#us-###
 
 ## Reviewer Checklist
 
-- [ ] PR title starts with `US-###:` and body includes `Implements: US-###`
-- [ ] `docs/opencode-helper-cli.md` story is updated with `Status: Done` and `PR: <link/#>`
+- [ ] PR title uses primary `US-###:` and body includes `Implements: US-###`
+- [ ] If `Also advances:` is present, those IDs are not marked `Done` unless fully completed
+- [ ] `docs/opencode-helper-cli.md` primary story entry is updated with `PR: <link/#>`
+- [ ] `docs/opencode-helper-cli.md` primary story `Status` is `Done` only when all acceptance criteria are satisfied

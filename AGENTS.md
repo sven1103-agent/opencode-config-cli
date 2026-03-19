@@ -27,7 +27,7 @@ Before doing any substantive work for a new user story or implementation task in
 - Keep changes aligned with the repo's planning-first, schema-validated workflow
 - Preserve the role of `.opencode/schemas/handoff.schema.json` and `.opencode/schemas/result.schema.json` as the local canonical artifact contracts for this repo
 - Prefer additive, traceable documentation changes over informal notes scattered across files
-- Treat traceability as a first-class requirement: when a PR implements a user story, start the title with `US-###`, include `Implements: US-###` in the PR body, and update the source story in `docs/opencode-helper-cli.md` with `Status: Done` plus the PR link or number
+- Treat traceability as a first-class requirement: every implementation PR must declare a single primary user story ID (`US-###`) and follow the traceability rules in `docs/opencode-helper-cli.md` (primary story selection, multi-story handling, and when it is allowed to mark `Status: Done`).
 - For multi-agent work, keep handoffs and results traceable through the session artifact workflow under `.opencode/sessions/` and validate those artifacts against `.opencode/schemas/handoff.schema.json` and `.opencode/schemas/result.schema.json`
 - Treat helper CLI planning in `docs/opencode-helper-cli.md` as the source of truth for requirements, features, and later user stories
 - Avoid changing unrelated session artifacts under `.opencode/sessions/`
