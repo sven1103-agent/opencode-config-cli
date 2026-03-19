@@ -873,10 +873,10 @@ Priority:
 - P0
 
 Status:
-- Planned
+- Done
 
 PR:
-- TBD
+- https://github.com/sven1103-agent/opencode-agents/pull/19
 
 Type:
 - User-facing
