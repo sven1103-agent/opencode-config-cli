@@ -1403,10 +1403,10 @@ Priority:
 - P0
 
 Status:
-- Planned
+- In review
 
 PR:
-- TBD
+- [#46](https://github.com/sven1103-agent/opencode-agents/pull/46)
 
 Type:
 - User-facing
