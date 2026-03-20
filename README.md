@@ -12,6 +12,13 @@ Install in one line (macOS / Linux):
 curl -fsSL https://github.com/sven1103-agent/opencode-agents/releases/latest/download/install.sh | sh
 ```
 
+If you want to use it immediately in the same terminal:
+
+```sh
+export PATH="$HOME/.local/bin:$PATH"
+opencode-helper version
+```
+
 Then initialize a project:
 
 ```sh
