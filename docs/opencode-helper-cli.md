@@ -1403,7 +1403,7 @@ Priority:
 - P0
 
 Status:
-- In review
+- Done
 
 PR:
 - [#46](https://github.com/sven1103-agent/opencode-agents/pull/46)
