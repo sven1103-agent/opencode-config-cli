@@ -4,29 +4,43 @@ Drop-in OpenCode agent configs that route work through schema-validated JSON han
 
 This repository contains a planning-first, multi-tier agent configuration for [OpenCode AI](https://opencode.ai), plus an OpenAI-model variant in `opencode.openai.json`. It defines specialized agents across four functional tiers — routing/orchestration, planning, execution, and validation — designed to minimize cost while preserving quality at every decision point.
 
-## Installation
+## Quick Start
 
-Install in one line (macOS / Linux):
+Install, use immediately in this terminal, check version, and bootstrap a project:
 
 ```sh
 curl -fsSL https://github.com/sven1103-agent/opencode-agents/releases/latest/download/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+opencode-helper version
+opencode-helper init --project-root .
 ```
 
-If you want to use it immediately in the same terminal:
+## Install Options
+
+### Custom install path (`--bin-dir`)
 
 ```sh
-export PATH="$HOME/.local/bin:$PATH"
+curl -fsSL https://github.com/sven1103-agent/opencode-agents/releases/latest/download/install.sh | sh -s -- --bin-dir "$HOME/bin"
+export PATH="$HOME/bin:$PATH"
 opencode-helper version
 ```
 
-Then initialize a project:
+### Version pinning (`--version` and `OPENCODE_HELPER_VERSION`)
 
 ```sh
-opencode-helper init --project-root .
-opencode-helper preset list
+curl -fsSL https://github.com/sven1103-agent/opencode-agents/releases/latest/download/install.sh | sh -s -- --version v0.1.0
 ```
 
-For alternative install options (specific version, custom path): see [Helper CLI](#helper-cli).
+```sh
+OPENCODE_HELPER_VERSION=v0.1.0 sh -c 'curl -fsSL https://github.com/sven1103-agent/opencode-agents/releases/latest/download/install.sh | sh'
+```
+
+## Using the Installed Helper
+
+```sh
+opencode-helper preset list
+opencode-helper validate --project-root . --output ./opencode.json
+```
 
 ---
 
@@ -38,6 +52,112 @@ Repository configuration files:
 Product planning:
 
 - `docs/opencode-helper-cli.md` — traceable PRD, requirements, features, and later user-story source for the helper CLI
+
+---
+
+## Getting Started
+
+### Using the Configuration
+
+Choose a configuration file and point OpenCode AI at it (many setups keep the active config at `opencode.json` locally):
+
+This repository includes `opencode.mixed.json` and `opencode.openai.json` (OpenAI-model variant).
+
+```bash
+# Validate the configuration
+cat opencode.mixed.json | jq . > /dev/null && echo "Valid JSON"   # or: opencode.openai.json
+```
+
+The `default_agent` field is set to `docs`:
+
+```json
+{
+  "default_agent": "docs"
+}
+```
+
+This means any task submitted without an explicit agent selection routes through `docs` automatically (for code changes, call `coding-boss` explicitly).
+
+**Entry points:**
+- `coding-boss` — for all code changes, bug fixes, refactors, and implementations
+- `docs` — for all documentation tasks
+
+### Helper CLI Reference
+
+This repository also includes an iteration-1 helper script at `scripts/opencode-helper` for bootstrapping a local `opencode.json` and local schema install.
+
+```bash
+# Show helper commands
+sh scripts/opencode-helper help
+
+# List bundled presets
+sh scripts/opencode-helper preset list
+
+# Initialize a project with the OpenAI preset
+sh scripts/opencode-helper init --preset openai --project-root "$PWD"
+
+# Validate helper-managed setup state
+sh scripts/opencode-helper validate --project-root "$PWD"
+
+# Equivalent output path spellings resolve to the same target
+sh scripts/opencode-helper validate --project-root "$PWD" --output ./opencode.json
+
+# Show helper version and bundled asset provenance
+sh scripts/opencode-helper version
+```
+
+Generated project-local layout:
+
+```text
+<project-root>/
+  opencode.json
+  .opencode/
+    opencode-helper-manifest.tsv
+    install-manifest.tsv
+    schemas/
+      handoff.schema.json
+      result.schema.json
+```
+
+### Helper release bundle assets (US-016)
+
+Tagged helper releases (`v*`) now publish five deterministic GitHub Release assets:
+
+- `opencode-helper-<tag>.tar.gz`
+- `opencode-helper-<tag>-manifest.json`
+- `opencode-helper-<tag>-checksums.txt`
+- `opencode-helper-install`
+- `install.sh`
+
+Bundle archive layout is rooted at `opencode-helper-<tag>/` and preserves helper runtime-relative paths:
+
+```text
+opencode-helper-<tag>/
+  install.sh
+  scripts/opencode-helper
+  scripts/opencode-helper-install
+  opencode.openai.json
+  opencode.mixed.json
+  .opencode/schemas/handoff.schema.json
+  .opencode/schemas/result.schema.json
+  release-manifest.json
+```
+
+The external `*-manifest.json` matches the in-bundle `release-manifest.json` bytes. `*-checksums.txt` contains SHA-256 lines for all five published assets (`opencode-helper-<tag>.tar.gz`, `opencode-helper-<tag>-manifest.json`, `opencode-helper-<tag>-checksums.txt`, `opencode-helper-install`, `install.sh`) in `<sha256>  <filename>` format.
+
+`scripts/opencode-helper-install` now installs from the latest published GitHub release by default. It downloads `opencode-helper-<tag>.tar.gz` together with `opencode-helper-<tag>-checksums.txt`, verifies the tarball SHA-256 before extraction, and aborts without activating the bundle if verification fails.
+
+### Calling Agents
+
+```bash
+# Code task: coding-boss handles routing automatically
+# It will decide whether to plan first or go straight to implementation
+
+# Documentation task: docs applies planner-first policy
+# It will decide whether to plan, write directly, or involve agent-architect
+```
+
+You do not need to call `planner`, `implementer`, or `code-reviewer` directly. The routing agents manage the pipeline.
 
 ---
 
@@ -695,112 +815,6 @@ Minimal paired example (handoff + result):
   "tests_run": ["none"]
 }
 ```
-
----
-
-## Getting Started
-
-### Using the Configuration
-
-Choose a configuration file and point OpenCode AI at it (many setups keep the active config at `opencode.json` locally):
-
-This repository includes `opencode.mixed.json` and `opencode.openai.json` (OpenAI-model variant).
-
-```bash
-# Validate the configuration
-cat opencode.mixed.json | jq . > /dev/null && echo "Valid JSON"   # or: opencode.openai.json
-```
-
-The `default_agent` field is set to `docs`:
-
-```json
-{
-  "default_agent": "docs"
-}
-```
-
-This means any task submitted without an explicit agent selection routes through `docs` automatically (for code changes, call `coding-boss` explicitly).
-
-**Entry points:**
-- `coding-boss` — for all code changes, bug fixes, refactors, and implementations
-- `docs` — for all documentation tasks
-
-### Iteration-1 helper CLI
-
-This repository also includes an iteration-1 helper script at `scripts/opencode-helper` for bootstrapping a local `opencode.json` and local schema install.
-
-```bash
-# Show helper commands
-sh scripts/opencode-helper help
-
-# List bundled presets
-sh scripts/opencode-helper preset list
-
-# Initialize a project with the OpenAI preset
-sh scripts/opencode-helper init --preset openai --project-root "$PWD"
-
-# Validate helper-managed setup state
-sh scripts/opencode-helper validate --project-root "$PWD"
-
-# Equivalent output path spellings resolve to the same target
-sh scripts/opencode-helper validate --project-root "$PWD" --output ./opencode.json
-
-# Show helper version and bundled asset provenance
-sh scripts/opencode-helper version
-```
-
-Generated project-local layout:
-
-```text
-<project-root>/
-  opencode.json
-  .opencode/
-    opencode-helper-manifest.tsv
-    install-manifest.tsv
-    schemas/
-      handoff.schema.json
-      result.schema.json
-```
-
-### Helper release bundle assets (US-016)
-
-Tagged helper releases (`v*`) now publish five deterministic GitHub Release assets:
-
-- `opencode-helper-<tag>.tar.gz`
-- `opencode-helper-<tag>-manifest.json`
-- `opencode-helper-<tag>-checksums.txt`
-- `opencode-helper-install`
-- `install.sh`
-
-Bundle archive layout is rooted at `opencode-helper-<tag>/` and preserves helper runtime-relative paths:
-
-```text
-opencode-helper-<tag>/
-  install.sh
-  scripts/opencode-helper
-  scripts/opencode-helper-install
-  opencode.openai.json
-  opencode.mixed.json
-  .opencode/schemas/handoff.schema.json
-  .opencode/schemas/result.schema.json
-  release-manifest.json
-```
-
-The external `*-manifest.json` matches the in-bundle `release-manifest.json` bytes. `*-checksums.txt` contains SHA-256 lines for all published release assets (tarball, manifest, `opencode-helper-install`, and `install.sh`) in `<sha256>  <filename>` format.
-
-`scripts/opencode-helper-install` now installs from the latest published GitHub release by default. It downloads `opencode-helper-<tag>.tar.gz` together with `opencode-helper-<tag>-checksums.txt`, verifies the tarball SHA-256 before extraction, and aborts without activating the bundle if verification fails.
-
-### Calling Agents
-
-```bash
-# Code task: coding-boss handles routing automatically
-# It will decide whether to plan first or go straight to implementation
-
-# Documentation task: docs applies planner-first policy
-# It will decide whether to plan, write directly, or involve agent-architect
-```
-
-You do not need to call `planner`, `implementer`, or `code-reviewer` directly. The routing agents manage the pipeline.
 
 ---
 
