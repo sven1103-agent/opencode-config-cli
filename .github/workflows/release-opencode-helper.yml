@@ -22,10 +22,15 @@ jobs:
       - name: Build release bundle artifacts
         run: |
           mkdir -p release-assets
-          sh scripts/release/build-opencode-helper-bundle.sh \
+          BUNDLE_OUTPUT=$(sh scripts/release/build-opencode-helper-bundle.sh \
             --tag "${GITHUB_REF_NAME}" \
             --commit-sha "${GITHUB_SHA}" \
-            --output-dir release-assets
+            --output-dir release-assets)
+          echo "BUNDLE_TARBALL=$(echo "$BUNDLE_OUTPUT" | sed -n '1p')" >> "$GITHUB_ENV"
+          echo "BUNDLE_MANIFEST=$(echo "$BUNDLE_OUTPUT" | sed -n '2p')" >> "$GITHUB_ENV"
+          echo "BUNDLE_CHECKSUMS=$(echo "$BUNDLE_OUTPUT" | sed -n '3p')" >> "$GITHUB_ENV"
+          echo "BUNDLE_INSTALLER=$(echo "$BUNDLE_OUTPUT" | sed -n '4p')" >> "$GITHUB_ENV"
+          echo "BUNDLE_BOOTSTRAP=$(echo "$BUNDLE_OUTPUT" | sed -n '5p')" >> "$GITHUB_ENV"
 
       - name: Ensure release exists
         env:
@@ -42,7 +47,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${GITHUB_REF_NAME}" \
-            "release-assets/opencode-helper-${GITHUB_REF_NAME}.tar.gz" \
-            "release-assets/opencode-helper-${GITHUB_REF_NAME}-manifest.json" \
-            "release-assets/opencode-helper-${GITHUB_REF_NAME}-checksums.txt" \
+            "${{ env.BUNDLE_TARBALL }}" \
+            "${{ env.BUNDLE_MANIFEST }}" \
+            "${{ env.BUNDLE_CHECKSUMS }}" \
+            "${{ env.BUNDLE_INSTALLER }}" \
+            "${{ env.BUNDLE_BOOTSTRAP }}" \
             --clobber

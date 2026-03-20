@@ -322,6 +322,34 @@ Depends on:
 - [REQ-F-015](#req-f-015)
 - [REQ-F-017](#req-f-017)
 
+#### <a id="req-f-020"></a>REQ-F-020 - Bootstrap Install Script
+
+The helper CLI shall publish a standalone bootstrap install script (`install.sh`) as a separate release asset alongside the release bundle, enabling the standard `curl|sh` one-liner distribution:
+
+```sh
+curl -fsSL https://github.com/sven1103-agent/opencode-agents/releases/latest/download/install.sh | sh
+```
+
+The bootstrap script shall:
+
+- Be self-contained and small (under 100 lines of shell)
+- Use only `curl` or `wget` (whichever is available) to download assets
+- Accept the same flags as `opencode-helper-install` (`--bin-dir`, `--version`)
+- Accept `OPENCODE_HELPER_VERSION` as an environment variable to pin the release tag
+- Fetch `opencode-helper-<tag>-checksums.txt` from the same release and verify the downloaded `opencode-helper-install` before executing it
+- Pass through all arguments to `opencode-helper-install --yes`
+
+The bootstrap script is itself a release asset. It is:
+- Included in the release tarball bundle at the bundle root
+- Also uploaded as a separate release asset file so it can be downloaded independently from the GitHub Releases page
+
+The bootstrap script shall NOT download the tarball. Its single responsibility is to download, verify, and delegate to `opencode-helper-install`.
+
+Depends on:
+- [DEC-001](#dec-001)
+- [REQ-F-015](#req-f-015)
+- [REQ-F-016](#req-f-016)
+
 ### Non-Functional Requirements
 
 #### <a id="req-nf-001"></a>REQ-NF-001 - Minimal Footprint
@@ -565,6 +593,7 @@ Satisfies:
 | [REQ-F-017](#req-f-017) | Functional Requirement | [FEAT-009](#feat-009), [US-018](#us-018), [US-020](#us-020) |
 | [REQ-F-018](#req-f-018) | Functional Requirement | [FEAT-009](#feat-009), [FEAT-010](#feat-010), [US-019](#us-019) |
 | [REQ-F-019](#req-f-019) | Functional Requirement | [FEAT-009](#feat-009), [US-020](#us-020) |
+| [REQ-F-020](#req-f-020) | Functional Requirement | [FEAT-009](#feat-009), [US-021](#us-021) |
 | [REQ-NF-001](#req-nf-001) | Non-Functional Requirement | [FEAT-001](#feat-001) to [FEAT-008](#feat-008) |
 | [REQ-NF-002](#req-nf-002) | Non-Functional Requirement | [FEAT-001](#feat-001) to [FEAT-007](#feat-007) |
 | [REQ-NF-003](#req-nf-003) | Non-Functional Requirement | [FEAT-008](#feat-008), [FEAT-010](#feat-010) |
@@ -582,7 +611,7 @@ Satisfies:
 | [FEAT-006](#feat-006) | Feature | [REQ-F-007](#req-f-007), [REQ-NF-004](#req-nf-004), [US-006](#us-006) |
 | [FEAT-007](#feat-007) | Feature | [REQ-F-009](#req-f-009), [REQ-NF-006](#req-nf-006), [US-007](#us-007), [US-011](#us-011) |
 | [FEAT-008](#feat-008) | Feature | [REQ-F-008](#req-f-008), [REQ-F-009](#req-f-009), [REQ-NF-003](#req-nf-003) |
-| [FEAT-009](#feat-009) | Feature | [REQ-F-012](#req-f-012), [REQ-F-013](#req-f-013), [REQ-F-014](#req-f-014), [REQ-F-015](#req-f-015), [REQ-F-016](#req-f-016), [REQ-F-017](#req-f-017), [REQ-F-018](#req-f-018), [REQ-F-019](#req-f-019), [US-012](#us-012), [US-013](#us-013), [US-014](#us-014), [US-015](#us-015), [US-017](#us-017), [US-018](#us-018), [US-019](#us-019), [US-020](#us-020) |
+| [FEAT-009](#feat-009) | Feature | [REQ-F-012](#req-f-012), [REQ-F-013](#req-f-013), [REQ-F-014](#req-f-014), [REQ-F-015](#req-f-015), [REQ-F-016](#req-f-016), [REQ-F-017](#req-f-017), [REQ-F-018](#req-f-018), [REQ-F-019](#req-f-019), [REQ-F-020](#req-f-020), [US-012](#us-012), [US-013](#us-013), [US-014](#us-014), [US-015](#us-015), [US-017](#us-017), [US-018](#us-018), [US-019](#us-019), [US-020](#us-020), [US-021](#us-021) |
 | [FEAT-010](#feat-010) | Feature | [REQ-F-015](#req-f-015), [REQ-F-016](#req-f-016), [REQ-F-018](#req-f-018), [REQ-NF-008](#req-nf-008), [REQ-NF-009](#req-nf-009), [US-016](#us-016), [US-019](#us-019) |
 | [US-001](#us-001) | User Story | [FEAT-002](#feat-002), [REQ-F-003](#req-f-003), [REQ-F-001a](#req-f-001a), [REQ-F-009](#req-f-009) |
 | [US-002](#us-002) | User Story | [FEAT-001](#feat-001), [REQ-F-004](#req-f-004), [REQ-F-005](#req-f-005), [REQ-F-010](#req-f-010), [REQ-F-011](#req-f-011), [REQ-NF-002](#req-nf-002) |
@@ -604,6 +633,7 @@ Satisfies:
 | [US-018](#us-018) | User Story | [FEAT-009](#feat-009), [REQ-F-017](#req-f-017) |
 | [US-019](#us-019) | User Story | [FEAT-009](#feat-009), [FEAT-010](#feat-010), [REQ-F-018](#req-f-018), [REQ-NF-009](#req-nf-009) |
 | [US-020](#us-020) | User Story | [FEAT-009](#feat-009), [REQ-F-017](#req-f-017), [REQ-F-019](#req-f-019) |
+| [US-021](#us-021) | User Story | [FEAT-009](#feat-009), [REQ-F-020](#req-f-020) |
 
 ---
 
@@ -1300,6 +1330,37 @@ Acceptance criteria:
 - Given ...
 - When ...
 - Then ...
+
+---
+
+### <a id="us-021"></a>US-021 - Bootstrap install.sh enables curl|sh distribution
+
+Priority:
+- P0
+
+Status:
+- Done
+
+PR:
+- [#39](https://github.com/sven1103-agent/opencode-agents/pull/39)
+
+Type:
+- User-facing | Release-engineering-facing
+
+Related features:
+- [FEAT-009](#feat-009)
+
+Related requirements:
+- [REQ-F-020](#req-f-020)
+
+Story:
+- As a developer, I want to install `opencode-helper` with a single `curl|sh` command without cloning the repository, so that getting started with the helper CLI is frictionless.
+
+Acceptance criteria:
+- Given a macOS or Linux system with `curl` or `wget` available, when I run `curl -fsSL https://github.com/sven1103-agent/opencode-agents/releases/latest/download/install.sh | sh`, then `opencode-helper` is installed to `~/.local/bin/opencode-helper` and the helper is on `PATH`.
+- Given the bootstrap install script, when I run `curl .../install.sh | sh --version v1.0.0`, then the installed helper is from that exact release tag.
+- Given the bootstrap install script, when the downloaded `opencode-helper-install` fails its checksum verification, then the bootstrap exits non-zero without executing the installer.
+- Given `OPENCODE_HELPER_VERSION` is set in the environment, when the bootstrap runs, then it uses that tag instead of `latest`.
 
 ---
 

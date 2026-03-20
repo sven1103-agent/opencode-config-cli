@@ -68,6 +68,8 @@ BUNDLE_ROOT="opencode-helper-$TAG"
 TARBALL_NAME="$BUNDLE_ROOT.tar.gz"
 MANIFEST_NAME="$BUNDLE_ROOT-manifest.json"
 CHECKSUMS_NAME="$BUNDLE_ROOT-checksums.txt"
+INSTALLER_NAME="opencode-helper-install"
+BOOTSTRAP_NAME="install.sh"
 
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/opencode-helper-bundle.XXXXXX")
 trap 'rm -rf "$TMP_DIR"' EXIT INT TERM
@@ -77,17 +79,19 @@ mkdir -p "$STAGE/scripts" "$STAGE/.opencode/schemas"
 
 cp "$REPO_ROOT/scripts/opencode-helper" "$STAGE/scripts/opencode-helper"
 cp "$REPO_ROOT/scripts/opencode-helper-install" "$STAGE/scripts/opencode-helper-install"
+cp "$REPO_ROOT/scripts/release/install.sh" "$STAGE/install.sh"
 cp "$REPO_ROOT/opencode.openai.json" "$STAGE/opencode.openai.json"
 cp "$REPO_ROOT/opencode.mixed.json" "$STAGE/opencode.mixed.json"
 cp "$REPO_ROOT/.opencode/schemas/handoff.schema.json" "$STAGE/.opencode/schemas/handoff.schema.json"
 cp "$REPO_ROOT/.opencode/schemas/result.schema.json" "$STAGE/.opencode/schemas/result.schema.json"
 
-chmod 755 "$STAGE/scripts/opencode-helper" "$STAGE/scripts/opencode-helper-install"
+chmod 755 "$STAGE/scripts/opencode-helper" "$STAGE/scripts/opencode-helper-install" "$STAGE/install.sh"
 chmod 644 "$STAGE/opencode.openai.json" "$STAGE/opencode.mixed.json"
 chmod 644 "$STAGE/.opencode/schemas/handoff.schema.json" "$STAGE/.opencode/schemas/result.schema.json"
 
 FILES='scripts/opencode-helper
 scripts/opencode-helper-install
+install.sh
 opencode.openai.json
 opencode.mixed.json
 .opencode/schemas/handoff.schema.json
@@ -121,9 +125,12 @@ MANIFEST_INNER="$STAGE/release-manifest.json"
 chmod 644 "$MANIFEST_INNER"
 
 cp "$MANIFEST_INNER" "$OUTPUT_DIR/$MANIFEST_NAME"
+cp "$REPO_ROOT/scripts/opencode-helper-install" "$OUTPUT_DIR/$INSTALLER_NAME"
+cp "$REPO_ROOT/scripts/release/install.sh" "$OUTPUT_DIR/$BOOTSTRAP_NAME"
+chmod 755 "$OUTPUT_DIR/$INSTALLER_NAME" "$OUTPUT_DIR/$BOOTSTRAP_NAME"
 
 touch -t 198001010000 "$STAGE" "$STAGE/scripts" "$STAGE/.opencode" "$STAGE/.opencode/schemas"
-touch -t 198001010000 "$STAGE/scripts/opencode-helper" "$STAGE/scripts/opencode-helper-install"
+touch -t 198001010000 "$STAGE/scripts/opencode-helper" "$STAGE/scripts/opencode-helper-install" "$STAGE/install.sh"
 touch -t 198001010000 "$STAGE/opencode.openai.json" "$STAGE/opencode.mixed.json"
 touch -t 198001010000 "$STAGE/.opencode/schemas/handoff.schema.json" "$STAGE/.opencode/schemas/result.schema.json"
 touch -t 198001010000 "$MANIFEST_INNER"
@@ -134,6 +141,7 @@ $BUNDLE_ROOT
 $BUNDLE_ROOT/scripts
 $BUNDLE_ROOT/scripts/opencode-helper
 $BUNDLE_ROOT/scripts/opencode-helper-install
+$BUNDLE_ROOT/install.sh
 $BUNDLE_ROOT/opencode.openai.json
 $BUNDLE_ROOT/opencode.mixed.json
 $BUNDLE_ROOT/.opencode
@@ -144,22 +152,34 @@ $BUNDLE_ROOT/release-manifest.json
 EOF
 
 TAR_PATH="$OUTPUT_DIR/$TARBALL_NAME"
+
+TAR_NO_RECURSION=
+if tar --help 2>/dev/null | grep -q -- '--no-recursion'; then
+  TAR_NO_RECURSION="--no-recursion"
+fi
+
 if tar --help 2>/dev/null | grep -q -- '--uid'; then
-  tar --format=ustar --uid 0 --gid 0 --uname root --gname root -cf "$TMP_DIR/bundle.tar" -C "$TMP_DIR/stage" -T "$LIST_FILE"
+  tar $TAR_NO_RECURSION --format=ustar --uid 0 --gid 0 --uname root --gname root -cf "$TMP_DIR/bundle.tar" -C "$TMP_DIR/stage" -T "$LIST_FILE"
 elif tar --help 2>/dev/null | grep -q -- '--owner'; then
-  tar --format=ustar --owner 0 --group 0 --numeric-owner -cf "$TMP_DIR/bundle.tar" -C "$TMP_DIR/stage" -T "$LIST_FILE"
+  tar $TAR_NO_RECURSION --format=ustar --owner 0 --group 0 --numeric-owner -cf "$TMP_DIR/bundle.tar" -C "$TMP_DIR/stage" -T "$LIST_FILE"
 else
-  tar --format=ustar -cf "$TMP_DIR/bundle.tar" -C "$TMP_DIR/stage" -T "$LIST_FILE"
+  tar $TAR_NO_RECURSION --format=ustar -cf "$TMP_DIR/bundle.tar" -C "$TMP_DIR/stage" -T "$LIST_FILE"
 fi
 gzip -n -c "$TMP_DIR/bundle.tar" > "$TAR_PATH"
 
 TAR_SHA=$(sha256_file "$TAR_PATH")
 MANIFEST_SHA=$(sha256_file "$OUTPUT_DIR/$MANIFEST_NAME")
+INSTALLER_SHA=$(sha256_file "$OUTPUT_DIR/$INSTALLER_NAME")
+BOOTSTRAP_SHA=$(sha256_file "$OUTPUT_DIR/$BOOTSTRAP_NAME")
 {
   printf '%s  %s\n' "$TAR_SHA" "$TARBALL_NAME"
   printf '%s  %s\n' "$MANIFEST_SHA" "$MANIFEST_NAME"
+  printf '%s  %s\n' "$INSTALLER_SHA" "$INSTALLER_NAME"
+  printf '%s  %s\n' "$BOOTSTRAP_SHA" "$BOOTSTRAP_NAME"
 } > "$OUTPUT_DIR/$CHECKSUMS_NAME"
 
 printf '%s\n' "$OUTPUT_DIR/$TARBALL_NAME"
 printf '%s\n' "$OUTPUT_DIR/$MANIFEST_NAME"
 printf '%s\n' "$OUTPUT_DIR/$CHECKSUMS_NAME"
+printf '%s\n' "$OUTPUT_DIR/$INSTALLER_NAME"
+printf '%s\n' "$OUTPUT_DIR/$BOOTSTRAP_NAME"
