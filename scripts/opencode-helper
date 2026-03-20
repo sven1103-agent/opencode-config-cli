@@ -262,6 +262,7 @@ Commands:
   init                          Initialize project with preset and schemas
   preset list                   List available bundled presets
   preset current                 Show active preset from manifest
+  preset switch                  Interactively select and apply a preset
   preset use <name>             Apply a preset to output path
   release use <tag>             Switch to an already installed release
   schema install                Install schemas into project
@@ -299,6 +300,30 @@ preset current - show the active preset from the manifest
 
 Usage:
   $(command_name) preset current [--project-root PATH]
+EOF
+}
+
+usage_preset_switch() {
+  cat <<EOF
+preset switch - interactively select and apply a preset
+
+Usage:
+  $(command_name) preset switch [--project-root PATH] [--output PATH] [--force] [--dry-run]
+
+In TTY mode: displays a numbered list of all available presets with their
+descriptions and marks the currently active preset (if a manifest exists).
+Enter a number (1-5), an exact preset name, or a unique partial match.
+Invalid entries are rejected and re-prompted.
+
+In non-TTY mode: reads one line from stdin. Accepts a number (1-5), an exact
+preset name, or an unambiguous partial match. Exits nonzero on invalid input.
+
+Preset names:
+  1  openai      OpenAI only - GPT-5.4/GPT-5.2/GPT-5.3-codex/GPT-5.1-codex-mini (paid)
+  2  mixed       Mixed providers - OpenAI + Anthropic Claude models (paid)
+  3  big-pickle  Free tier - all agents use Big Pickle (free, limited time)
+  4  minimax     Budget hybrid - MiniMax M2.5 (planner/review), Big Pickle (implementer)
+  5  kimi        Budget hybrid - Kimi K2.5 (planner/review), Big Pickle (implementer)
 EOF
 }
 
@@ -452,6 +477,79 @@ cmd_preset_list() {
   return "$EXIT_OK"
 }
 
+_preset_switch_resolve() {
+  raw_input=$1
+  input=$raw_input
+
+  while :; do
+    case "$input" in
+      ''|[![:space:]]*) break ;;
+      *) input=${input#?} ;;
+    esac
+  done
+
+  while :; do
+    case "$input" in
+      ''|*[![:space:]]) break ;;
+      *) input=${input%?} ;;
+    esac
+  done
+
+  [ -n "$input" ] || {
+    err "empty selection"
+    return 1
+  }
+
+  case "$input" in
+    1) printf '%s\n' "openai"; return 0 ;;
+    2) printf '%s\n' "mixed"; return 0 ;;
+    3) printf '%s\n' "big-pickle"; return 0 ;;
+    4) printf '%s\n' "minimax"; return 0 ;;
+    5) printf '%s\n' "kimi"; return 0 ;;
+    [0-9]*)
+      err "invalid selection: $input (choose 1-5 or a preset name)"
+      return 1
+      ;;
+  esac
+
+  case "$input" in
+    openai|mixed|big-pickle|minimax|kimi)
+      printf '%s\n' "$input"
+      return 0
+      ;;
+  esac
+
+  count=0
+  selected=
+  matches=
+  for name in openai mixed big-pickle minimax kimi; do
+    case "$name" in
+      *"$input"*)
+        count=$((count + 1))
+        selected=$name
+        if [ -n "$matches" ]; then
+          matches="$matches, $name"
+        else
+          matches=$name
+        fi
+        ;;
+    esac
+  done
+
+  if [ "$count" -eq 1 ]; then
+    printf '%s\n' "$selected"
+    return 0
+  fi
+
+  if [ "$count" -eq 0 ]; then
+    err "unknown preset: $input"
+    return 1
+  fi
+
+  err "ambiguous selection: matches $matches"
+  return 1
+}
+
 cmd_preset_current() {
   project_root=$1
 
@@ -498,6 +596,58 @@ cmd_preset_current() {
   printf 'source_preset\t%s\n' "$source_preset"
   printf 'helper_version\t%s\n' "$helper_version"
   return "$EXIT_OK"
+}
+
+cmd_preset_switch() {
+  project_root=$1
+  output=$2
+  force=$3
+  dry_run=$4
+
+  manifest_path="$project_root/.opencode/opencode-helper-manifest.tsv"
+  current_preset=''
+  if [ -f "$manifest_path" ]; then
+    current_preset=$(read_manifest_value "$manifest_path" preset_name 2>/dev/null) || current_preset=''
+  fi
+  [ -n "$current_preset" ] || log "warn: no active preset found in manifest (proceeding without indicator)"
+
+  if [ -t 0 ]; then
+    printf 'Available presets:\n'
+    prefix='  '
+    [ "$current_preset" = "openai" ] && prefix='* '
+    printf '%s1  openai      %s\n' "$prefix" "$(preset_description openai)"
+    prefix='  '
+    [ "$current_preset" = "mixed" ] && prefix='* '
+    printf '%s2  mixed       %s\n' "$prefix" "$(preset_description mixed)"
+    prefix='  '
+    [ "$current_preset" = "big-pickle" ] && prefix='* '
+    printf '%s3  big-pickle  %s\n' "$prefix" "$(preset_description big-pickle)"
+    prefix='  '
+    [ "$current_preset" = "minimax" ] && prefix='* '
+    printf '%s4  minimax     %s\n' "$prefix" "$(preset_description minimax)"
+    prefix='  '
+    [ "$current_preset" = "kimi" ] && prefix='* '
+    printf '%s5  kimi        %s\n' "$prefix" "$(preset_description kimi)"
+
+    while :; do
+      printf 'Select preset (1-5 or name): ' > /dev/tty
+      if ! IFS= read -r selection < /dev/tty; then
+        err "no selection made"
+        return "$EXIT_ERR"
+      fi
+      selected=$(_preset_switch_resolve "$selection") || continue
+      break
+    done
+  else
+    if ! IFS= read -r selection; then
+      err "no selection made"
+      return "$EXIT_ERR"
+    fi
+    selected=$(_preset_switch_resolve "$selection") || return "$EXIT_ERR"
+  fi
+
+  apply_preset "$selected" "$project_root" "$output" "$force" "$dry_run" 1
+  return $?
 }
 
 cmd_schema_install() {
@@ -849,6 +999,51 @@ case "$cmd" in
           [ -d "$project_root" ] || { err "project root not found: $project_root"; exit "$EXIT_MISSING"; }
         fi
         cmd_preset_current "$project_root"
+        exit $?
+        ;;
+      switch)
+        for arg in "$@"; do
+          case "$arg" in
+            -h|--help) usage_preset_switch; exit "$EXIT_OK" ;;
+          esac
+        done
+        project_root=$PWD
+        output=opencode.json
+        force=0
+        dry_run=0
+        while [ "$#" -gt 0 ]; do
+          case "$1" in
+            --project-root)
+              [ "$#" -ge 2 ] || { err "--project-root requires PATH"; exit "$EXIT_ERR"; }
+              project_root=$2
+              shift 2
+              ;;
+            --output)
+              [ "$#" -ge 2 ] || { err "--output requires PATH"; exit "$EXIT_ERR"; }
+              output=$2
+              shift 2
+              ;;
+            --force)
+              force=1
+              shift
+              ;;
+            --dry-run)
+              dry_run=1
+              shift
+              ;;
+            -h|--help)
+              usage_preset_switch
+              exit "$EXIT_OK"
+              ;;
+            *)
+              err "unknown option for preset switch: $1"
+              exit "$EXIT_ERR"
+              ;;
+          esac
+        done
+        [ -n "$project_root" ] || { err "--project-root requires PATH"; exit "$EXIT_ERR"; }
+        [ -d "$project_root" ] || { err "project root not found: $project_root"; exit "$EXIT_MISSING"; }
+        cmd_preset_switch "$project_root" "$output" "$force" "$dry_run"
         exit $?
         ;;
       *)

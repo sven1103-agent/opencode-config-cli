@@ -1281,7 +1281,7 @@ Priority:
 - P0
 
 Status:
-- Planned
+- In progress
 
 PR:
 - TBD
@@ -1376,7 +1376,7 @@ Status:
 - Done
 
 PR:
-- TBD
+- [#45](https://github.com/sven1103-agent/opencode-agents/pull/45)
 
 Type:
 - User-facing
@@ -1437,7 +1437,7 @@ Priority:
 - P1
 
 Status:
-- Planned
+- In progress
 
 PR:
 - TBD
