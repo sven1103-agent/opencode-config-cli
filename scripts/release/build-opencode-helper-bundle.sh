@@ -82,11 +82,17 @@ cp "$REPO_ROOT/scripts/opencode-helper-install" "$STAGE/scripts/opencode-helper-
 cp "$REPO_ROOT/scripts/release/install.sh" "$STAGE/install.sh"
 cp "$REPO_ROOT/opencode.openai.json" "$STAGE/opencode.openai.json"
 cp "$REPO_ROOT/opencode.mixed.json" "$STAGE/opencode.mixed.json"
+cp "$REPO_ROOT/opencode.big-pickle.json" "$STAGE/opencode.big-pickle.json"
+cp "$REPO_ROOT/opencode.minimax.json" "$STAGE/opencode.minimax.json"
+cp "$REPO_ROOT/opencode.kimi.json" "$STAGE/opencode.kimi.json"
 cp "$REPO_ROOT/.opencode/schemas/handoff.schema.json" "$STAGE/.opencode/schemas/handoff.schema.json"
 cp "$REPO_ROOT/.opencode/schemas/result.schema.json" "$STAGE/.opencode/schemas/result.schema.json"
 
 chmod 755 "$STAGE/scripts/opencode-helper" "$STAGE/scripts/opencode-helper-install" "$STAGE/install.sh"
 chmod 644 "$STAGE/opencode.openai.json" "$STAGE/opencode.mixed.json"
+chmod 644 "$STAGE/opencode.big-pickle.json" "$STAGE/opencode.big-pickle.json"
+chmod 644 "$STAGE/opencode.minimax.json" "$STAGE/opencode.minimax.json"
+chmod 644 "$STAGE/opencode.kimi.json" "$STAGE/opencode.kimi.json"
 chmod 644 "$STAGE/.opencode/schemas/handoff.schema.json" "$STAGE/.opencode/schemas/result.schema.json"
 
 FILES='scripts/opencode-helper
@@ -94,6 +100,9 @@ scripts/opencode-helper-install
 install.sh
 opencode.openai.json
 opencode.mixed.json
+opencode.big-pickle.json
+opencode.minimax.json
+opencode.kimi.json
 .opencode/schemas/handoff.schema.json
 .opencode/schemas/result.schema.json'
 
@@ -132,6 +141,7 @@ chmod 755 "$OUTPUT_DIR/$INSTALLER_NAME" "$OUTPUT_DIR/$BOOTSTRAP_NAME"
 touch -t 198001010000 "$STAGE" "$STAGE/scripts" "$STAGE/.opencode" "$STAGE/.opencode/schemas"
 touch -t 198001010000 "$STAGE/scripts/opencode-helper" "$STAGE/scripts/opencode-helper-install" "$STAGE/install.sh"
 touch -t 198001010000 "$STAGE/opencode.openai.json" "$STAGE/opencode.mixed.json"
+touch -t 198001010000 "$STAGE/opencode.big-pickle.json" "$STAGE/opencode.minimax.json" "$STAGE/opencode.kimi.json"
 touch -t 198001010000 "$STAGE/.opencode/schemas/handoff.schema.json" "$STAGE/.opencode/schemas/result.schema.json"
 touch -t 198001010000 "$MANIFEST_INNER"
 
@@ -144,6 +154,9 @@ $BUNDLE_ROOT/scripts/opencode-helper-install
 $BUNDLE_ROOT/install.sh
 $BUNDLE_ROOT/opencode.openai.json
 $BUNDLE_ROOT/opencode.mixed.json
+$BUNDLE_ROOT/opencode.big-pickle.json
+$BUNDLE_ROOT/opencode.minimax.json
+$BUNDLE_ROOT/opencode.kimi.json
 $BUNDLE_ROOT/.opencode
 $BUNDLE_ROOT/.opencode/schemas
 $BUNDLE_ROOT/.opencode/schemas/handoff.schema.json
