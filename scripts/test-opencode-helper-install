@@ -512,6 +512,9 @@ test_helper_version_works_without_release_manifest() {
   assert_text_contains "$output" 'helper_version'
   assert_text_contains "$output" 'preset	opencode.openai.json	'
   assert_text_contains "$output" 'preset	opencode.mixed.json	'
+  assert_text_contains "$output" 'preset	opencode.big-pickle.json	'
+  assert_text_contains "$output" 'preset	opencode.minimax.json	'
+  assert_text_contains "$output" 'preset	opencode.kimi.json	'
   assert_text_contains "$output" 'schema	handoff.schema.json	'
   assert_text_contains "$output" 'schema	result.schema.json	'
 }
