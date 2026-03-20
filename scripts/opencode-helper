@@ -266,6 +266,7 @@ Commands:
   preset use <name>             Apply a preset to output path
   release use <tag>             Switch to an already installed release
   schema install                Install schemas into project
+  self-update                   Update helper to latest release
   validate                      Verify setup health and detect drift
   version                       Show CLI version and bundled asset identity
 
@@ -342,6 +343,24 @@ release use - activate a previously installed helper release by tag (no re-downl
 
 Usage:
   $(command_name) release use <tag>
+EOF
+}
+
+usage_self_update() {
+  cat <<EOF
+self-update - download and install the latest helper release, preserving existing setup
+
+Usage:
+  $(command_name) self-update [--version TAG]
+
+Options:
+  --version TAG   Install a specific release tag instead of latest
+
+Notes:
+  - Requires network access to fetch releases from GitHub
+  - Preserves existing INSTALL_HOME and BIN_DIR locations
+  - Keeps previous releases for rollback via 'release use'
+  - Requires write access to INSTALL_HOME/releases and BIN_DIR
 EOF
 }
 
@@ -851,6 +870,420 @@ cmd_release_use() {
   return "$EXIT_OK"
 }
 
+# Self-update support functions
+
+RELEASE_REPO_DEFAULT="sven1103-agent/opencode-agents"
+
+selfupdate_detect_install_home() {
+  # First try INSTALL_HOME env var set by launcher
+  if [ -n "${INSTALL_HOME:-}" ]; then
+    printf '%s\n' "$INSTALL_HOME"
+    return 0
+  fi
+  # Fall back to detecting from current execution context
+  current_release_root=$(helper_installed_release_root) || return 1
+  helper_install_home_from_context "$current_release_root"
+}
+
+selfupdate_detect_bin_dir() {
+  # The launcher script is at BIN_DIR/opencode-helper
+  # $0 points to the launcher script when invoked via the launcher
+  launcher_path=$1
+  
+  # Resolve the launcher path to handle symlinks
+  if [ -L "$launcher_path" ]; then
+    launcherresolved=$(readlink -f "$launcher_path") || return 1
+  else
+    launcherresolved=$launcher_path
+  fi
+  
+  # Get the directory containing the launcher (BIN_DIR)
+  bindir=$(dirname "$launcherresolved")
+  printf '%s\n' "$bindir"
+}
+
+selfupdate_get_current_release_tag() {
+  install_home=$1
+  current_link="$install_home/current"
+  
+  if [ ! -L "$current_link" ]; then
+    return 1
+  fi
+  
+  # Resolve symlink to get the releases/<tag> path
+  current_target=$(readlink -f "$current_link") || return 1
+  current_tag=$(basename "$current_target")
+  printf '%s\n' "$current_tag"
+}
+
+selfupdate_fetch_latest_tag() {
+  workdir=$1
+  release_repo=${OPENCODE_HELPER_RELEASE_REPO:-$RELEASE_REPO_DEFAULT}
+  api_base=${OPENCODE_HELPER_RELEASE_API_BASE:-https://api.github.com/repos/$release_repo/releases}
+  
+  latest_url="$api_base/latest"
+  latest_json="$workdir/latest.json"
+  
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$latest_url" -o "$latest_json" || return 1
+  elif command -v wget >/dev/null 2>&1; then
+    wget -q -O "$latest_json" "$latest_url" || return 1
+  else
+    err "missing downloader: require curl or wget"
+    return 1
+  fi
+  
+  tag=$(awk -F '"' '/"tag_name"[[:space:]]*:/ {print $4; exit}' "$latest_json")
+  if [ -z "$tag" ]; then
+    return 1
+  fi
+  printf '%s\n' "$tag"
+}
+
+selfupdate_fetch_release_tag() {
+  workdir=$1
+  requested_tag=$2
+  release_repo=${OPENCODE_HELPER_RELEASE_REPO:-$RELEASE_REPO_DEFAULT}
+  api_base=${OPENCODE_HELPER_RELEASE_API_BASE:-https://api.github.com/repos/$release_repo/releases}
+  
+  tag_url="$api_base/releases/tags/$requested_tag"
+  tag_json="$workdir/tag.json"
+  
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$tag_url" -o "$tag_json" || return 1
+  elif command -v wget >/dev/null 2>&1; then
+    wget -q -O "$tag_json" "$tag_url" || return 1
+  else
+    err "missing downloader: require curl or wget"
+    return 1
+  fi
+  
+  found=$(awk -F '"' '/"tag_name"[[:space:]]*:/ {print $4; exit}' "$tag_json")
+  if [ -z "$found" ] || [ "$found" != "$requested_tag" ]; then
+    return 1
+  fi
+  printf '%s\n' "$found"
+}
+
+selfupdate_sha256_file() {
+  file=$1
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$file" | awk '{print $1}'
+  else
+    shasum -a 256 "$file" | awk '{print $1}'
+  fi
+}
+
+selfupdate_download_and_verify() {
+  workdir=$1
+  release_tag=$2
+  release_repo=${OPENCODE_HELPER_RELEASE_REPO:-$RELEASE_REPO_DEFAULT}
+  download_base=${OPENCODE_HELPER_RELEASE_DOWNLOAD_BASE:-https://github.com/$release_repo/releases/download}
+  
+  bundle_root="opencode-helper-$release_tag"
+  bundle_name="$bundle_root.tar.gz"
+  checksums_name="$bundle_root-checksums.txt"
+  
+  bundle_url="$download_base/$release_tag/$bundle_name"
+  checksums_url="$download_base/$release_tag/$checksums_name"
+  
+  bundle_path="$workdir/$bundle_name"
+  checksums_path="$workdir/$checksums_name"
+  
+  log "downloading release bundle $release_tag"
+  
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$bundle_url" -o "$bundle_path" || {
+      err "failed to download release bundle"
+      return 1
+    }
+    curl -fsSL "$checksums_url" -o "$checksums_path" || {
+      err "failed to download checksum manifest"
+      rm -f "$bundle_path"
+      return 1
+    }
+  elif command -v wget >/dev/null 2>&1; then
+    wget -q -O "$bundle_path" "$bundle_url" || {
+      err "failed to download release bundle"
+      return 1
+    }
+    wget -q -O "$checksums_path" "$checksums_url" || {
+      err "failed to download checksum manifest"
+      rm -f "$bundle_path"
+      return 1
+    }
+  else
+    err "missing downloader: require curl or wget"
+    return 1
+  fi
+  
+  # Verify checksum
+  [ -f "$checksums_path" ] || {
+    err "missing checksum manifest"
+    rm -f "$bundle_path"
+    return 1
+  }
+  
+  expected_sha=$(awk -v wanted="$bundle_name" '$2==wanted {print $1; found=1; exit} END {if (!found) exit 1}' "$checksums_path") || {
+    err "checksum manifest missing bundle entry: $bundle_name"
+    rm -f "$bundle_path" "$checksums_path"
+    return 1
+  }
+  
+  actual_sha=$(selfupdate_sha256_file "$bundle_path") || {
+    err "failed to compute bundle checksum"
+    rm -f "$bundle_path" "$checksums_path"
+    return 1
+  }
+  
+  if [ "$actual_sha" != "$expected_sha" ]; then
+    err "bundle checksum mismatch for $bundle_name"
+    rm -f "$bundle_path" "$checksums_path"
+    return 1
+  fi
+  
+  log "verified SHA-256 for $bundle_name"
+  
+  # Extract bundle
+  extract_dir="$workdir/extracted"
+  rm -rf "$extract_dir"
+  mkdir -p "$extract_dir" || {
+    err "failed to create extraction directory"
+    return 1
+  }
+  
+  tar -xzf "$bundle_path" -C "$extract_dir" || {
+    err "failed to extract release bundle"
+    rm -rf "$extract_dir"
+    return 1
+  }
+  
+  # Verify contents
+  helper_path="$extract_dir/$bundle_root/scripts/opencode-helper"
+  if [ ! -f "$helper_path" ]; then
+    err "release bundle missing helper executable"
+    rm -rf "$extract_dir"
+    return 1
+  fi
+  manifest_path="$extract_dir/$bundle_root/release-manifest.json"
+  if [ ! -f "$manifest_path" ]; then
+    err "release bundle missing release-manifest.json"
+    rm -rf "$extract_dir"
+    return 1
+  fi
+  
+  printf '%s\n' "$extract_dir/$bundle_root"
+}
+
+selfupdate_install_release() {
+  src_bundle=$1
+  release_tag=$2
+  install_home=$3
+  
+  release_parent="$install_home/releases"
+  release_dir="$release_parent/$release_tag"
+  
+  mkdir -p "$release_parent" || {
+    err "failed to create releases directory"
+    return 1
+  }
+  
+  rm -rf "$release_dir.tmp.$$"
+  cp -R "$src_bundle" "$release_dir.tmp.$$" || {
+    err "failed to stage release bundle copy"
+    rm -rf "$release_dir.tmp.$$"
+    return 1
+  }
+  
+  rm -rf "$release_dir"
+  mv "$release_dir.tmp.$$" "$release_dir" || {
+    err "failed to install release bundle"
+    rm -rf "$release_dir.tmp.$$"
+    return 1
+  }
+  
+  log "installed release to $release_dir"
+  printf '%s\n' "$release_dir"
+}
+
+selfupdate_write_launcher() {
+  bindir=$1
+  install_home=$2
+  dest="$bindir/opencode-helper"
+  
+  if [ ! -d "$bindir" ]; then
+    err "bindir does not exist: $bindir"
+    return 1
+  fi
+  
+  # Check if we can write to bindir
+  if [ ! -w "$bindir" ]; then
+    err "bindir not writable: $bindir"
+    return 1
+  fi
+  
+  launcher_tmp=$(mktemp "${TMPDIR:-/tmp}/opencode-helper-launcher.XXXXXX") || {
+    err "failed to prepare launcher"
+    return 1
+  }
+  
+  cat >"$launcher_tmp" <<EOF
+#!/bin/sh
+
+set -eu
+
+INSTALL_HOME="$(printf '%s' "$install_home")"
+HELPER="\$INSTALL_HOME/current/scripts/opencode-helper"
+
+if [ ! -x "\$HELPER" ]; then
+  printf 'error: installed helper missing or not executable: %s\n' "\$HELPER" >&2
+  exit 1
+fi
+
+exec "\$HELPER" "\$@"
+EOF
+  
+  chmod +x "$launcher_tmp"
+  
+  # Check if we need sudo for the bindir
+  privileged=0
+  case "$bindir" in
+    /usr/local|/usr/local/*|/opt/homebrew|/opt/homebrew/*|/usr/bin|/usr/bin/*|/bin|/bin/*|/sbin|/sbin/*|/opt|/opt/*)
+      privileged=1
+      ;;
+  esac
+  if [ $privileged -eq 0 ] && [ ! -w "$bindir" ]; then
+    privileged=1
+  fi
+  
+  if [ $privileged -eq 1 ]; then
+    sudo cp "$launcher_tmp" "$dest" || {
+      err "failed to write launcher to $dest (sudo required)"
+      rm -f "$launcher_tmp"
+      return 1
+    }
+    sudo chmod +x "$dest" || {
+      rm -f "$launcher_tmp"
+      return 1
+    }
+  else
+    cp "$launcher_tmp" "$dest" || {
+      err "failed to write launcher to $dest"
+      rm -f "$launcher_tmp"
+      return 1
+    }
+    chmod +x "$dest" || {
+      rm -f "$launcher_tmp"
+      return 1
+    }
+  fi
+  
+  rm -f "$launcher_tmp"
+  log "updated launcher at $dest"
+}
+
+cmd_self_update() {
+  requested_version=""
+  
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      -h|--help) usage_self_update; return "$EXIT_OK" ;;
+      --version)
+        shift
+        [ "$#" -gt 0 ] || { err "--version requires a tag"; usage_self_update; return "$EXIT_ERR"; }
+        requested_version=$1
+        ;;
+      *) err "unknown option: $1"; usage_self_update; return "$EXIT_ERR" ;;
+    esac
+    shift
+  done
+  
+  # Detect installation context
+  install_home=$(selfupdate_detect_install_home) || {
+    err "self-update is only available from an installed helper bundle"
+    return "$EXIT_ERR"
+  }
+  
+  # Get BIN_DIR from the launcher's location
+  # $0 is the launcher script path when invoked through the launcher
+  bin_dir=$(selfupdate_detect_bin_dir "$0") || {
+    err "failed to detect bin directory"
+    return "$EXIT_ERR"
+  }
+  
+  log "install home: $install_home"
+  log "bin dir: $bin_dir"
+  
+  # Get current release tag
+  current_tag=$(selfupdate_get_current_release_tag "$install_home") || current_tag="unknown"
+  log "current release: $current_tag"
+  
+  # Create temporary work directory
+  workdir=$(mktemp -d "${TMPDIR:-/tmp}/opencode-helper-selfupdate.XXXXXX") || {
+    err "failed to create temporary work directory"
+    return "$EXIT_ERR"
+  }
+  
+  # Cleanup on exit
+  cleanup() {
+    rm -rf "$workdir"
+  }
+  trap cleanup EXIT INT TERM
+  
+  # Fetch the target release tag
+  if [ -n "$requested_version" ]; then
+    target_tag=$(selfupdate_fetch_release_tag "$workdir" "$requested_version") || {
+      err "failed to fetch release metadata for $requested_version"
+      return "$EXIT_ERR"
+    }
+    log "requested version: $target_tag"
+  else
+    target_tag=$(selfupdate_fetch_latest_tag "$workdir") || {
+      err "failed to fetch latest release"
+      return "$EXIT_ERR"
+    }
+    log "latest version: $target_tag"
+  fi
+  
+  # Check if update is needed
+  if [ "$current_tag" = "$target_tag" ]; then
+    log "already at latest release: $current_tag"
+    return "$EXIT_OK"
+  fi
+  
+  # Download and verify the new release
+  log "fetching release $target_tag"
+  bundle_path=$(selfupdate_download_and_verify "$workdir" "$target_tag") || {
+    err "failed to download and verify release"
+    return "$EXIT_ERR"
+  }
+  
+  # Install the new release
+  log "installing release $target_tag"
+  new_release_dir=$(selfupdate_install_release "$bundle_path" "$target_tag" "$install_home") || {
+    err "failed to install release"
+    return "$EXIT_ERR"
+  }
+  
+  # Update the current symlink
+  log "activating release $target_tag"
+  activate_release_current_symlink "$install_home" "$new_release_dir" || {
+    err "failed to activate release"
+    return "$EXIT_ERR"
+  }
+  
+  # Update the launcher script
+  log "updating launcher"
+  selfupdate_write_launcher "$bin_dir" "$install_home" || {
+    err "failed to update launcher"
+    return "$EXIT_ERR"
+  }
+  
+  log "ok: updated to $target_tag"
+  log "ok: previous releases available for rollback"
+  return "$EXIT_OK"
+}
+
 parse_common_flags() {
   project_root=$PWD
   preset_name=mixed
@@ -1091,6 +1524,10 @@ case "$cmd" in
         err "unknown schema command: ${sub:-}"; usage; exit "$EXIT_ERR"
         ;;
     esac
+    ;;
+  self-update)
+    cmd_self_update "$@"
+    exit $?
     ;;
   validate)
     parse_common_flags "$@"
