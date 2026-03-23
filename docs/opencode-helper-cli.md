@@ -10,6 +10,7 @@
   - [Functional Requirements](#functional-requirements)
   - [Non-Functional Requirements](#non-functional-requirements)
 - [First Features](#first-features)
+- [V2 Milestone Plan](opencode-helper-v2-milestones.md)
 - [Traceability Matrix](#traceability-matrix)
 - [User Story Backlog Placeholder](#user-story-backlog-placeholder)
 - [Open Questions for Post-V1](#open-questions-for-post-v1)
@@ -17,6 +18,9 @@
 ## Overview
 
 This document is the single traceable product source for the OpenCode helper CLI. It captures the initial product direction, requirements, first feature set, and the traceability structure that later user stories must follow.
+
+Related planning docs:
+- `docs/opencode-helper-v2-milestones.md` - milestone sequencing and rollout plan for the V2+ config-source architecture
 
 Status: Draft for V1  
 Owner: TBD  
@@ -41,6 +45,25 @@ Implications:
 - `self-update` updates the CLI and bundled assets together
 - Live remote schema fetching is out of scope for V1
 
+### <a id="dec-002"></a>DEC-002 - Config bundles are distributed via versioned config sources (V2+)
+
+Starting in V2+, official OpenCode configuration assets (presets + prompts) are distributed via one or more separate versioned config sources with independent release flow.
+
+Supported source types may include:
+- local directories
+- local `.tar.gz` archive files
+- versioned remote release assets (for example GitHub release bundles)
+
+The helper CLI remains the supported installer/applier:
+- The CLI can register one or more config sources.
+- The CLI resolves and caches config bundles from supported source types.
+- The CLI applies a chosen bundle (and preset within it) into a target project.
+- The CLI reports provenance for installed bundles/presets/prompts.
+
+Interaction with DEC-001:
+- DEC-001 remains the V1 baseline.
+- DEC-002 supersedes DEC-001 for V2+ scope.
+
 ---
 
 ## PRD
@@ -48,6 +71,10 @@ Implications:
 ### <a id="prd-001"></a>PRD-001 - Product Goal
 
 Provide a small helper CLI that bootstraps and maintains a local OpenCode project setup using official bundled config presets and official bundled inter-agent schemas, with safe validation and self-update behavior tied to CLI releases.
+
+V2+ direction (see [DEC-002](#dec-002)):
+- The CLI bootstraps and maintains a local OpenCode project setup by installing and applying config bundles from registered config sources.
+- The CLI may still ship with minimal built-in defaults, but official presets/prompts are expected to come from external config sources.
 
 ### <a id="prd-002"></a>PRD-002 - Problem Statement
 
@@ -68,6 +95,13 @@ The helper CLI should let a user:
 - install required schemas
 - validate setup health
 - update to the latest supported release
+
+V2+ user value additions:
+- register one or more config sources
+- browse presets across sources (with source + bundle release context)
+- install and apply a chosen config bundle release (including referenced prompt files)
+- see provenance of installed bundle/preset/prompts
+- check for newer compatible bundle releases from update-capable sources and get prompted before updating
 
 ### <a id="prd-005"></a>PRD-005 - Success Criteria
 
@@ -96,6 +130,16 @@ V1 is successful when:
 - Self-update from the latest GitHub release
 - Version/provenance reporting for bundled assets
 
+### In Scope (V2+ config bundles)
+
+- Registering and managing one or more config sources
+- Resolving/caching config bundles from supported source types
+- Preset discovery across registered sources (including descriptions and provenance context)
+- Applying a selected bundle release (and preset) to a project
+- Installing prompt files referenced by presets (e.g. `{file:./prompts/...}`) as part of applying a bundle
+- Reporting provenance for installed bundle/preset/prompt files
+- Checking for newer compatible bundle releases from update-capable sources and prompting the user before updating installed bundles
+
 ### Out of Scope
 
 - Direct end-user fetching of raw assets from GitHub releases
@@ -103,6 +147,16 @@ V1 is successful when:
 - Automatic migration of arbitrary user-customized configs
 - Windows support unless explicitly added later
 - Full remote orchestration or hosted service behavior
+
+V2+ out of scope (initially):
+- Automatically merging arbitrary user overlays with bundle upgrades
+- Mandatory online operation after bundles are installed/cached
+- Config repo authentication flows beyond what the underlying git/http tooling supports by default
+
+Supported source types for the first V2+ scope baseline:
+- local directory source
+- local `.tar.gz` archive source
+- GitHub release bundle source
 
 ---
 
@@ -350,6 +404,194 @@ Depends on:
 - [REQ-F-015](#req-f-015)
 - [REQ-F-016](#req-f-016)
 
+#### <a id="req-f-021"></a>REQ-F-021 - Config Source Registry
+
+The CLI shall support registering one or more config sources in a global (user-level) registry so that config bundles can be discovered and installed.
+
+Registry items must include at least:
+- a source location
+- a source type, or enough information for the CLI to determine the source type during validation
+- a stable local identifier derived from the source manifest or assigned by the CLI
+
+Depends on:
+- [DEC-002](#dec-002)
+
+#### <a id="req-f-022"></a>REQ-F-022 - Config Bundle Manifest Contract
+
+Each config bundle shall include a machine-readable manifest file at a fixed path:
+- `opencode-bundle.manifest.json`
+
+The manifest shall use JSON and a versioned top-level structure that the CLI can validate.
+
+Required top-level fields:
+- `manifest_version` - manifest format version understood by the CLI
+- `bundle_name` - stable bundle identifier
+- `bundle_version` - bundle release/tag or other source-level version identifier
+- `presets` - array of preset descriptors
+
+Each preset descriptor shall include:
+- `name` - stable preset identifier
+- `description` - short human-readable description
+- `entrypoint` - path to the preset config file within the bundle
+- `prompt_files` - array of prompt file paths that must be materialized when the preset is applied
+
+Optional provenance fields:
+- `source_repo`
+- `source_commit`
+- `release_tag`
+
+The CLI shall reject a bundle when:
+- the manifest file is missing
+- the manifest is not valid JSON
+- `manifest_version` is unsupported
+- any required field is missing
+- a declared `entrypoint` or `prompt_files` path does not exist in the bundle
+
+Note: a published JSON Schema for this manifest may be added later, but the file location, field names, and validation rules above are normative for V2+ behavior.
+
+Example manifest:
+
+```json
+{
+  "manifest_version": 1,
+  "bundle_name": "official-openai",
+  "bundle_version": "v2.0.0",
+  "source_repo": "https://github.com/example/opencode-configs",
+  "source_commit": "abc1234",
+  "release_tag": "v2.0.0",
+  "presets": [
+    {
+      "name": "openai",
+      "description": "OpenAI-based planning-first preset",
+      "entrypoint": "presets/opencode.openai.json",
+      "prompt_files": [
+        "prompts/coding-boss.txt",
+        "prompts/planner.txt",
+        "prompts/code-reviewer.txt"
+      ]
+    }
+  ]
+}
+```
+
+Depends on:
+- [DEC-002](#dec-002)
+
+#### <a id="req-f-023"></a>REQ-F-023 - Preset Discovery Across Config Sources
+
+The CLI shall let users list presets across all registered config sources and shall display each preset together with:
+- short description
+- source identifier
+- bundle release/version
+
+Depends on:
+- [REQ-F-021](#req-f-021)
+- [REQ-F-022](#req-f-022)
+
+#### <a id="req-f-024"></a>REQ-F-024 - Resolve, Install, and Apply a Bundle
+
+The CLI shall let users choose a config source and bundle or version selector, resolve/cache it locally, apply a selected preset from that bundle into a target project, and persist bundle provenance for later status/update behavior.
+
+Depends on:
+- [REQ-F-021](#req-f-021)
+- [REQ-F-022](#req-f-022)
+- [REQ-F-010](#req-f-010)
+
+#### <a id="req-f-025"></a>REQ-F-025 - Install Referenced Prompt Files
+
+When applying a preset from a config bundle, the CLI shall also materialize any prompt files referenced by that preset into the target project so that the resulting `opencode.json` can resolve `{file:...}` references locally.
+
+Depends on:
+- [REQ-F-024](#req-f-024)
+
+#### <a id="req-f-026"></a>REQ-F-026 - Bundle Provenance Reporting
+
+The CLI shall report previously persisted provenance for installed config bundles and for applied presets/prompts, including at least:
+- source identifier and source location
+- installed bundle release/version
+- a source commit identifier when available
+
+Depends on:
+- [REQ-F-021](#req-f-021)
+- [REQ-F-024](#req-f-024)
+
+#### <a id="req-f-027"></a>REQ-F-027 - Bundle Update Check with User Prompt
+
+For update-capable config sources, the CLI shall detect when a newer compatible bundle release is available for an installed bundle and shall prompt the user before performing a bundle update.
+
+Depends on:
+- [REQ-F-021](#req-f-021)
+- [REQ-F-024](#req-f-024)
+- [REQ-F-026](#req-f-026)
+
+#### <a id="req-f-028"></a>REQ-F-028 - Supported Bundle Source Types
+
+The first V2+ scope baseline shall support at least these config source types:
+- local directory source
+- local `.tar.gz` archive source
+- GitHub release bundle source
+
+Depends on:
+- [DEC-002](#dec-002)
+
+#### <a id="req-f-029"></a>REQ-F-029 - Bundle Resolution Normalization
+
+The CLI shall resolve every supported config source into a normalized local bundle root before validation and apply.
+
+Normalization requirements:
+- exactly one `opencode-bundle.manifest.json` must be discoverable for the resolved bundle
+- the CLI shall tolerate bundle content at the source root or nested under a single extracted top-level directory
+- after resolution, manifest validation and apply behavior shall be source-type independent
+
+Depends on:
+- [REQ-F-022](#req-f-022)
+- [REQ-F-024](#req-f-024)
+- [REQ-F-028](#req-f-028)
+
+#### <a id="req-f-030"></a>REQ-F-030 - V1 to V2 Upgrade Compatibility and Migration
+
+The CLI shall allow an existing V1 user to upgrade to a V2+-capable CLI via the existing `self-update` flow without breaking an already working project setup.
+
+Upgrade compatibility requirements:
+- `self-update` shall continue to upgrade the CLI in place using the existing supported workflow
+- existing V1 project setups shall remain usable after upgrading the CLI
+- the V2+ CLI shall detect legacy bundled-preset project state when relevant and provide clear guidance for adopting config sources
+- if the CLI supports migration from legacy bundled-preset state into config-source-managed state, that migration shall require explicit user action and shall not be forced implicitly during CLI upgrade
+
+Depends on:
+- [REQ-F-008](#req-f-008)
+- [REQ-F-024](#req-f-024)
+- [DEC-002](#dec-002)
+
+#### <a id="req-f-031"></a>REQ-F-031 - Config Source Capability Model
+
+The CLI shall classify each registered config source by capability so source-type-specific behavior is explicit and predictable.
+
+At minimum, the capability model shall distinguish whether a source supports:
+- bundle discovery
+- version selection
+- update checks
+
+Commands that depend on a capability shall surface a clear error when invoked against a source that does not support it.
+
+Depends on:
+- [REQ-F-021](#req-f-021)
+- [REQ-F-028](#req-f-028)
+
+#### <a id="req-f-032"></a>REQ-F-032 - Remote Bundle Integrity Verification
+
+For remote config sources, the CLI shall verify remote bundle integrity before applying or updating a bundle.
+
+Verification requirements:
+- the remote source shall expose integrity metadata sufficient for the CLI to verify the downloaded bundle
+- bundle apply or update shall fail closed if integrity metadata is missing, unreadable, or does not match the downloaded bundle
+- no downloaded remote bundle contents shall be activated for use if integrity verification fails
+
+Depends on:
+- [REQ-F-024](#req-f-024)
+- [REQ-F-027](#req-f-027)
+- [REQ-F-028](#req-f-028)
+
 ### Non-Functional Requirements
 
 #### <a id="req-nf-001"></a>REQ-NF-001 - Minimal Footprint
@@ -565,6 +807,108 @@ Satisfies:
 - [REQ-NF-008](#req-nf-008)
 - [REQ-NF-009](#req-nf-009)
 
+### <a id="feat-011"></a>FEAT-011 - Config Source Management
+
+Description:
+- Manage a user-level registry of config sources (add/remove/list)
+
+Likely command shape:
+- `opencode-helper source add <location> [--type <type>]`
+- `opencode-helper source list`
+- `opencode-helper source remove <source-id>`
+
+Satisfies:
+- [REQ-F-021](#req-f-021)
+- [REQ-F-028](#req-f-028)
+
+### <a id="feat-012"></a>FEAT-012 - Bundle Install and Apply
+
+Description:
+- Resolve/cache a chosen config bundle from a registered config source and apply a preset from that bundle into a target project
+
+Likely command shape:
+- `opencode-helper bundle install <source-id> [--version <tag>]`
+- `opencode-helper bundle apply <source-id> [--version <tag>] --preset <name>`
+
+Satisfies:
+- [REQ-F-022](#req-f-022)
+- [REQ-F-023](#req-f-023)
+- [REQ-F-024](#req-f-024)
+- [REQ-F-025](#req-f-025)
+- [REQ-F-029](#req-f-029)
+- [REQ-F-010](#req-f-010)
+
+### <a id="feat-013"></a>FEAT-013 - Bundle Updates
+
+Description:
+- Check for newer compatible bundle releases and prompt the user before updating installed bundles
+
+Likely command shape:
+- `opencode-helper bundle update <source-id> [--yes]`
+
+Satisfies:
+- [REQ-F-027](#req-f-027)
+- [REQ-F-031](#req-f-031)
+
+### <a id="feat-014"></a>FEAT-014 - Bundle Provenance
+
+Description:
+- Persist and report provenance for installed bundles and applied presets/prompts
+
+Likely command shape:
+- `opencode-helper bundle status`
+
+Satisfies:
+- [REQ-F-024](#req-f-024)
+- [REQ-F-026](#req-f-026)
+
+### <a id="feat-015"></a>FEAT-015 - Source-Type Resolution
+
+Description:
+- Resolve supported source types (local directory, local `.tar.gz` archive, GitHub release bundle) into a normalized local bundle root before validation and apply
+
+Likely command shape:
+- internal resolution layer used by `source add`, `bundle install`, and `bundle apply`
+
+Satisfies:
+- [REQ-F-028](#req-f-028)
+- [REQ-F-029](#req-f-029)
+
+### <a id="feat-016"></a>FEAT-016 - Legacy Upgrade and Migration
+
+Description:
+- Preserve working V1 setups through CLI self-update and provide legacy-state detection plus migration guidance
+
+Likely command shape:
+- `opencode-helper self-update`
+- `opencode-helper migrate legacy-config`
+
+Satisfies:
+- [REQ-F-030](#req-f-030)
+
+### <a id="feat-017"></a>FEAT-017 - Source Capability Handling
+
+Description:
+- Determine and surface source capabilities so version selection and update behavior only appear where supported
+
+Likely command shape:
+- capability detection during `source add`
+- capability-aware behavior in `source list`, `bundle apply`, and `bundle update`
+
+Satisfies:
+- [REQ-F-031](#req-f-031)
+
+### <a id="feat-018"></a>FEAT-018 - Remote Bundle Verification
+
+Description:
+- Verify remote bundle integrity before applying or updating remote bundles
+
+Likely command shape:
+- verification step inside remote `bundle apply` and `bundle update` flows
+
+Satisfies:
+- [REQ-F-032](#req-f-032)
+
 ---
 
 ## Traceability Matrix
@@ -572,7 +916,8 @@ Satisfies:
 | ID | Type | Links To |
 |---|---|---|
 | [DEC-001](#dec-001) | Decision | [PRD-001](#prd-001), [REQ-F-001](#req-f-001), [REQ-F-002](#req-f-002), [REQ-F-008](#req-f-008), [REQ-NF-002](#req-nf-002), [REQ-NF-003](#req-nf-003) |
-| [PRD-001](#prd-001) | PRD | [REQ-F-001](#req-f-001) to [REQ-F-014](#req-f-014), [REQ-NF-001](#req-nf-001) to [REQ-NF-007](#req-nf-007) |
+| [DEC-002](#dec-002) | Decision | [PRD-001](#prd-001), [REQ-F-021](#req-f-021) to [REQ-F-032](#req-f-032) |
+| [PRD-001](#prd-001) | PRD | [REQ-F-001](#req-f-001) to [REQ-F-032](#req-f-032), [REQ-NF-001](#req-nf-001) to [REQ-NF-009](#req-nf-009) |
 | [REQ-F-001](#req-f-001) | Functional Requirement | [FEAT-001](#feat-001), [FEAT-002](#feat-002), [FEAT-003](#feat-003) |
 | [REQ-F-001a](#req-f-001a) | Functional Requirement | [FEAT-001](#feat-001), [FEAT-002](#feat-002) |
 | [REQ-F-002](#req-f-002) | Functional Requirement | [FEAT-001](#feat-001), [FEAT-004](#feat-004) |
@@ -594,6 +939,18 @@ Satisfies:
 | [REQ-F-018](#req-f-018) | Functional Requirement | [FEAT-009](#feat-009), [FEAT-010](#feat-010), [US-019](#us-019) |
 | [REQ-F-019](#req-f-019) | Functional Requirement | [FEAT-009](#feat-009), [US-020](#us-020), [US-023](#us-023) |
 | [REQ-F-020](#req-f-020) | Functional Requirement | [FEAT-009](#feat-009), [US-021](#us-021) |
+| [REQ-F-021](#req-f-021) | Functional Requirement | [FEAT-011](#feat-011), [US-026](#us-026) |
+| [REQ-F-022](#req-f-022) | Functional Requirement | [FEAT-012](#feat-012), [US-027](#us-027), [US-032](#us-032) |
+| [REQ-F-023](#req-f-023) | Functional Requirement | [FEAT-012](#feat-012), [US-027](#us-027) |
+| [REQ-F-024](#req-f-024) | Functional Requirement | [FEAT-012](#feat-012), [FEAT-014](#feat-014), [US-028](#us-028), [US-037](#us-037) |
+| [REQ-F-025](#req-f-025) | Functional Requirement | [FEAT-012](#feat-012), [US-028](#us-028), [US-029](#us-029) |
+| [REQ-F-026](#req-f-026) | Functional Requirement | [FEAT-014](#feat-014), [US-030](#us-030) |
+| [REQ-F-027](#req-f-027) | Functional Requirement | [FEAT-013](#feat-013), [US-031](#us-031) |
+| [REQ-F-028](#req-f-028) | Functional Requirement | [FEAT-011](#feat-011), [FEAT-015](#feat-015), [US-033](#us-033), [US-034](#us-034), [US-035](#us-035) |
+| [REQ-F-029](#req-f-029) | Functional Requirement | [FEAT-012](#feat-012), [FEAT-015](#feat-015), [US-028](#us-028), [US-034](#us-034), [US-035](#us-035) |
+| [REQ-F-030](#req-f-030) | Functional Requirement | [FEAT-016](#feat-016), [US-036](#us-036), [US-037](#us-037) |
+| [REQ-F-031](#req-f-031) | Functional Requirement | [FEAT-013](#feat-013), [FEAT-017](#feat-017), [US-031](#us-031), [US-038](#us-038) |
+| [REQ-F-032](#req-f-032) | Functional Requirement | [FEAT-018](#feat-018), [US-031](#us-031), [US-039](#us-039) |
 | [REQ-NF-001](#req-nf-001) | Non-Functional Requirement | [FEAT-001](#feat-001) to [FEAT-008](#feat-008) |
 | [REQ-NF-002](#req-nf-002) | Non-Functional Requirement | [FEAT-001](#feat-001) to [FEAT-007](#feat-007) |
 | [REQ-NF-003](#req-nf-003) | Non-Functional Requirement | [FEAT-008](#feat-008), [FEAT-010](#feat-010) |
@@ -613,6 +970,14 @@ Satisfies:
 | [FEAT-008](#feat-008) | Feature | [REQ-F-008](#req-f-008), [REQ-F-009](#req-f-009), [REQ-NF-003](#req-nf-003), [US-023](#us-023) |
 | [FEAT-009](#feat-009) | Feature | [REQ-F-012](#req-f-012), [REQ-F-013](#req-f-013), [REQ-F-014](#req-f-014), [REQ-F-015](#req-f-015), [REQ-F-016](#req-f-016), [REQ-F-017](#req-f-017), [REQ-F-018](#req-f-018), [REQ-F-019](#req-f-019), [REQ-F-020](#req-f-020), [US-012](#us-012), [US-013](#us-013), [US-014](#us-014), [US-015](#us-015), [US-017](#us-017), [US-018](#us-018), [US-019](#us-019), [US-020](#us-020), [US-021](#us-021) |
 | [FEAT-010](#feat-010) | Feature | [REQ-F-015](#req-f-015), [REQ-F-016](#req-f-016), [REQ-F-018](#req-f-018), [REQ-NF-008](#req-nf-008), [REQ-NF-009](#req-nf-009), [US-016](#us-016), [US-019](#us-019) |
+| [FEAT-011](#feat-011) | Feature | [REQ-F-021](#req-f-021), [REQ-F-028](#req-f-028), [US-026](#us-026), [US-033](#us-033) |
+| [FEAT-012](#feat-012) | Feature | [REQ-F-022](#req-f-022), [REQ-F-023](#req-f-023), [REQ-F-024](#req-f-024), [REQ-F-025](#req-f-025), [REQ-F-029](#req-f-029), [REQ-F-010](#req-f-010), [US-027](#us-027), [US-028](#us-028), [US-029](#us-029), [US-032](#us-032), [US-034](#us-034), [US-035](#us-035) |
+| [FEAT-013](#feat-013) | Feature | [REQ-F-027](#req-f-027), [REQ-F-031](#req-f-031), [US-031](#us-031) |
+| [FEAT-014](#feat-014) | Feature | [REQ-F-024](#req-f-024), [REQ-F-026](#req-f-026), [US-028](#us-028), [US-030](#us-030) |
+| [FEAT-015](#feat-015) | Feature | [REQ-F-028](#req-f-028), [REQ-F-029](#req-f-029), [US-033](#us-033), [US-034](#us-034), [US-035](#us-035) |
+| [FEAT-016](#feat-016) | Feature | [REQ-F-030](#req-f-030), [US-036](#us-036), [US-037](#us-037) |
+| [FEAT-017](#feat-017) | Feature | [REQ-F-031](#req-f-031), [US-035](#us-035), [US-038](#us-038) |
+| [FEAT-018](#feat-018) | Feature | [REQ-F-032](#req-f-032), [US-031](#us-031), [US-039](#us-039) |
 | [US-001](#us-001) | User Story | [FEAT-002](#feat-002), [REQ-F-003](#req-f-003), [REQ-F-001a](#req-f-001a), [REQ-F-009](#req-f-009) |
 | [US-002](#us-002) | User Story | [FEAT-001](#feat-001), [REQ-F-004](#req-f-004), [REQ-F-005](#req-f-005), [REQ-F-010](#req-f-010), [REQ-F-011](#req-f-011), [REQ-NF-002](#req-nf-002) |
 | [US-003](#us-003) | User Story | [FEAT-003](#feat-003), [REQ-F-004](#req-f-004), [REQ-F-010](#req-f-010), [REQ-F-011](#req-f-011) |
@@ -637,6 +1002,20 @@ Satisfies:
 | [US-023](#us-023) | User Story | [FEAT-008](#feat-008), [REQ-F-008](#req-f-008), [REQ-F-019](#req-f-019) |
 | [US-024](#us-024) | User Story | [FEAT-003](#feat-003), [REQ-F-003](#req-f-003), [REQ-F-004](#req-f-004), [REQ-F-010](#req-f-010) |
 | [US-025](#us-025) | User Story | [FEAT-003](#feat-003), [REQ-F-004](#req-f-004), [REQ-NF-004](#req-nf-004) |
+| [US-026](#us-026) | User Story | [FEAT-011](#feat-011), [REQ-F-021](#req-f-021) |
+| [US-027](#us-027) | User Story | [FEAT-012](#feat-012), [REQ-F-022](#req-f-022), [REQ-F-023](#req-f-023) |
+| [US-028](#us-028) | User Story | [FEAT-012](#feat-012), [REQ-F-024](#req-f-024), [REQ-F-025](#req-f-025) |
+| [US-029](#us-029) | User Story | [FEAT-012](#feat-012), [REQ-F-025](#req-f-025) |
+| [US-030](#us-030) | User Story | [FEAT-014](#feat-014), [REQ-F-026](#req-f-026) |
+| [US-031](#us-031) | User Story | [FEAT-013](#feat-013), [FEAT-018](#feat-018), [REQ-F-027](#req-f-027), [REQ-F-031](#req-f-031), [REQ-F-032](#req-f-032) |
+| [US-032](#us-032) | User Story | [FEAT-012](#feat-012), [REQ-F-022](#req-f-022) |
+| [US-033](#us-033) | User Story | [FEAT-011](#feat-011), [FEAT-015](#feat-015), [REQ-F-028](#req-f-028) |
+| [US-034](#us-034) | User Story | [FEAT-012](#feat-012), [FEAT-015](#feat-015), [REQ-F-028](#req-f-028), [REQ-F-029](#req-f-029) |
+| [US-035](#us-035) | User Story | [FEAT-012](#feat-012), [FEAT-015](#feat-015), [FEAT-017](#feat-017), [REQ-F-028](#req-f-028), [REQ-F-029](#req-f-029), [REQ-F-031](#req-f-031) |
+| [US-036](#us-036) | User Story | [FEAT-016](#feat-016), [REQ-F-030](#req-f-030), [REQ-F-008](#req-f-008) |
+| [US-037](#us-037) | User Story | [FEAT-016](#feat-016), [REQ-F-030](#req-f-030), [REQ-F-024](#req-f-024) |
+| [US-038](#us-038) | User Story | [FEAT-017](#feat-017), [REQ-F-031](#req-f-031) |
+| [US-039](#us-039) | User Story | [FEAT-018](#feat-018), [REQ-F-032](#req-f-032) |
 
 ---
 
@@ -1505,6 +1884,440 @@ Acceptance criteria:
 - Given a project with a missing manifest, when `opencode-helper preset current` runs, then it exits with a stable missing exit code and prints an actionable message.
 - Given a project with a drifted or invalid manifest, when `opencode-helper preset current` runs, then it exits with a stable drift exit code and prints diagnostics.
 - Given `opencode-helper preset current --project-root <path>`, then it reads the manifest from the specified project root.
+
+---
+
+### <a id="us-026"></a>US-026 - Register a config source
+
+Priority:
+- P0
+
+Status:
+- Planned
+
+PR:
+- TBD
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-011](#feat-011)
+
+Related requirements:
+- [REQ-F-021](#req-f-021)
+
+Story:
+- As a developer, I want to register a config source by location so that the helper can discover and install config bundles from it.
+
+Acceptance criteria:
+- Given a valid config source location, when I run `opencode-helper source add <location>`, then the source is added to the user-level registry and `opencode-helper source list` includes its resolved source identifier, source type, and location.
+- Given a source cannot be validated or its bundle manifest is missing/invalid, when I run `opencode-helper source add <location>`, then the command exits non-zero with a clear validation error and does not add the source.
+- Given one or more sources exist, when I run `opencode-helper source remove <source-id>`, then that source is removed from the registry and no longer appears in `source list`.
+
+---
+
+### <a id="us-027"></a>US-027 - List presets across registered config sources
+
+Priority:
+- P0
+
+Status:
+- Planned
+
+PR:
+- TBD
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-012](#feat-012)
+
+Related requirements:
+- [REQ-F-022](#req-f-022)
+- [REQ-F-023](#req-f-023)
+
+Story:
+- As a developer, I want to list presets available across my registered config sources so that I can choose a preset with clear source and version context.
+
+Acceptance criteria:
+- Given at least one registered config source with an installable bundle containing `opencode-bundle.manifest.json`, when I run `opencode-helper preset list --sources`, then the output includes each preset `name` and `description` together with its source identifier and `bundle_version`.
+- Given a source resolves to a bundle with a missing or invalid manifest, when the CLI inspects that source, then it excludes that bundle from preset discovery and reports an actionable validation error.
+- Given no config sources are registered, when I run `opencode-helper preset list --sources`, then the command exits with the documented status and prints actionable guidance to add a source.
+
+---
+
+### <a id="us-028"></a>US-028 - Apply a preset from a specific bundle source/version
+
+Priority:
+- P0
+
+Status:
+- Planned
+
+PR:
+- TBD
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-012](#feat-012)
+
+Related requirements:
+- [REQ-F-024](#req-f-024)
+- [REQ-F-025](#req-f-025)
+
+Story:
+- As a developer, I want to apply a preset from a chosen config bundle release so that my project uses a specific versioned configuration.
+
+Acceptance criteria:
+- Given a registered source and a resolvable bundle selector, when I run `opencode-helper bundle apply <source-id> [--version <tag>] --preset <name> --project-root <path>`, then the CLI resolves/caches the bundle (if needed), uses the manifest-declared `entrypoint`, materializes the preset into the target project, and persists bundle provenance needed for later status/update behavior.
+- Given the target project contains existing files that would be overwritten, when I run the command without `--force`, then the command exits non-zero and makes no destructive changes.
+- Given the command is run with `--dry-run`, when it completes, then it prints the planned changes and writes no files.
+
+---
+
+### <a id="us-029"></a>US-029 - Materialize referenced prompt files when applying a bundle
+
+Priority:
+- P0
+
+Status:
+- Planned
+
+PR:
+- TBD
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-012](#feat-012)
+
+Related requirements:
+- [REQ-F-025](#req-f-025)
+
+Story:
+- As a developer, I want referenced prompt files to be installed alongside the applied preset so that `{file:...}` prompt references resolve locally without extra manual steps.
+
+Acceptance criteria:
+- Given a preset contains `{file:./prompts/...}` references and the bundle manifest declares the required `prompt_files`, when I apply the preset, then those prompt files are written into the project at the expected relative paths.
+- Given a referenced prompt file already exists in the project, when applying without `--force`, then the command exits non-zero and does not overwrite the existing prompt file.
+
+---
+
+### <a id="us-030"></a>US-030 - Show provenance for installed bundles and applied presets
+
+Priority:
+- P1
+
+Status:
+- Planned
+
+PR:
+- TBD
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-014](#feat-014)
+
+Related requirements:
+- [REQ-F-026](#req-f-026)
+
+Story:
+- As a developer, I want to see which config source and bundle version my project configuration came from so that I can audit and reproduce the setup.
+
+Acceptance criteria:
+- Given a project initialized/applied from a bundle with persisted provenance, when I run `opencode-helper bundle status --project-root <path>`, then it prints the source identifier, source location, bundle release/version, and a commit identifier when available.
+- Given no bundle provenance exists for the project, when I run the status command, then it exits with a stable missing exit code and prints guidance to apply a bundle.
+
+---
+
+### <a id="us-031"></a>US-031 - Prompt before updating to a newer bundle release
+
+Priority:
+- P1
+
+Status:
+- Planned
+
+PR:
+- TBD
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-013](#feat-013)
+- [FEAT-018](#feat-018)
+
+Related requirements:
+- [REQ-F-027](#req-f-027)
+- [REQ-F-031](#req-f-031)
+- [REQ-F-032](#req-f-032)
+
+Story:
+- As a developer, I want the helper to detect newer compatible bundle releases and ask me before updating so that I stay in control of configuration changes.
+
+Acceptance criteria:
+- Given an installed bundle from an update-capable source and network access, when a newer compatible bundle release exists, then `opencode-helper bundle update <source-id>` prompts for confirmation before downloading/applying updates.
+- Given I decline the prompt, when the command exits, then no changes are made and the currently installed bundle remains active.
+- Given the selected source does not support update checks, when I run the update command, then the CLI exits non-zero with a clear capability error and leaves existing installed bundles unchanged.
+- Given integrity verification for the downloaded remote bundle fails, when I run the update command, then the CLI exits non-zero and does not activate the downloaded bundle.
+- Given network access is unavailable (or release lookup fails), when I run the update command, then it exits non-zero with a clear error and leaves existing installed bundles unchanged.
+
+---
+
+### <a id="us-032"></a>US-032 - Publish a deterministic bundle manifest
+
+Priority:
+- P1
+
+Status:
+- In progress
+
+PR:
+- TBD
+
+Type:
+- Maintainer-facing
+
+Related features:
+- [FEAT-012](#feat-012)
+
+Related requirements:
+- [REQ-F-022](#req-f-022)
+
+Story:
+- As a config bundle maintainer, I want each bundle to include a deterministic manifest that declares available presets and required prompt files so that the helper can discover and install the bundle reliably.
+
+Acceptance criteria:
+- Given a config bundle is inspected, when its contents are read, then `opencode-bundle.manifest.json` is present at the bundle root.
+- Given the manifest is parsed as JSON, when inspected, then it includes `manifest_version`, `bundle_name`, `bundle_version`, and `presets`.
+- Given each preset entry is inspected, then it includes `name`, `description`, `entrypoint`, and `prompt_files`.
+- Given a preset declares `entrypoint` or `prompt_files`, when the bundle contents are inspected, then those paths exist in the bundle.
+
+---
+
+### <a id="us-033"></a>US-033 - Register and use a local directory source
+
+Priority:
+- P0
+
+Status:
+- Planned
+
+PR:
+- TBD
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-011](#feat-011)
+- [FEAT-015](#feat-015)
+
+Related requirements:
+- [REQ-F-028](#req-f-028)
+
+Story:
+- As a developer, I want to use a local directory as a config source so that I can iterate on bundles without publishing an archive or remote release.
+
+Acceptance criteria:
+- Given a local directory containing a valid `opencode-bundle.manifest.json`, when I run `opencode-helper source add ./path/to/bundle`, then the CLI registers it as a local-directory source.
+- Given that registered local-directory source, when I run `opencode-helper preset list --sources`, then presets from that directory appear with the correct source identifier and bundle version.
+- Given the local directory does not contain a valid manifest, when I add it as a source, then the CLI exits non-zero with a clear validation error.
+
+---
+
+### <a id="us-034"></a>US-034 - Install and apply a bundle from a local archive
+
+Priority:
+- P0
+
+Status:
+- Planned
+
+PR:
+- TBD
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-012](#feat-012)
+- [FEAT-015](#feat-015)
+- [FEAT-017](#feat-017)
+
+Related requirements:
+- [REQ-F-028](#req-f-028)
+- [REQ-F-029](#req-f-029)
+
+Story:
+- As a developer, I want to use a local `.tar.gz` archive file as a config source so that I can install and share versioned bundles without requiring a live remote repo.
+
+Acceptance criteria:
+- Given a local archive containing a valid bundle, when I run `opencode-helper source add ./bundle.tar.gz`, then the CLI registers it as a local-archive source.
+- Given that registered local-archive source, when I run `opencode-helper bundle apply <source-id> --preset <name> --project-root <path>`, then the CLI extracts or resolves the archive to a normalized bundle root, validates the manifest, and applies the selected preset.
+- Given the archive contains the bundle at its root or under a single top-level extracted directory, when the CLI resolves it, then apply behavior is identical.
+
+---
+
+### <a id="us-035"></a>US-035 - Install and apply a bundle from a GitHub release source
+
+Priority:
+- P1
+
+Status:
+- Planned
+
+PR:
+- TBD
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-012](#feat-012)
+- [FEAT-015](#feat-015)
+
+Related requirements:
+- [REQ-F-028](#req-f-028)
+- [REQ-F-029](#req-f-029)
+- [REQ-F-031](#req-f-031)
+
+Story:
+- As a developer, I want to use a GitHub release bundle as a config source so that I can install officially published bundles from a remote release source.
+
+Acceptance criteria:
+- Given a GitHub release source pointing at a valid bundle asset, when I register it, then the CLI records it as a GitHub-release source and can discover presets from its manifest.
+- Given that registered GitHub-release source, when I run `opencode-helper bundle apply <source-id> --version <tag> --preset <name> --project-root <path>`, then the CLI downloads or reuses the selected release asset, resolves it to a normalized bundle root, validates the manifest, and applies the preset.
+
+---
+
+### <a id="us-036"></a>US-036 - Self-update preserves legacy V1 setups
+
+Priority:
+- P0
+
+Status:
+- Planned
+
+PR:
+- TBD
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-016](#feat-016)
+
+Related requirements:
+- [REQ-F-030](#req-f-030)
+- [REQ-F-008](#req-f-008)
+
+Story:
+- As a developer using an existing V1 helper installation, I want to upgrade via `self-update` without breaking my current project setup, so that I can adopt the V2+ CLI safely.
+
+Acceptance criteria:
+- Given an existing V1 helper installation, when I run `opencode-helper self-update` and the latest available version is V2+-capable, then the CLI upgrades successfully using the existing self-update workflow.
+- Given a project that uses a legacy bundled-preset setup, when I run the upgraded V2+ CLI, then the project remains usable without immediate migration.
+- Given the upgraded V2+ CLI detects a legacy bundled-preset setup, when I run a relevant setup or status command, then the CLI reports that the project is using legacy setup state and provides actionable migration guidance.
+
+---
+
+### <a id="us-037"></a>US-037 - Explicitly migrate a legacy bundled-preset project to config-source management
+
+Priority:
+- P1
+
+Status:
+- Planned
+
+PR:
+- TBD
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-016](#feat-016)
+
+Related requirements:
+- [REQ-F-030](#req-f-030)
+- [REQ-F-024](#req-f-024)
+
+Story:
+- As a developer with a legacy bundled-preset project, I want migration into config-source-managed setup to require an explicit action, so that my working project is never silently rewritten.
+
+Acceptance criteria:
+- Given a legacy bundled-preset project, when I do not explicitly invoke a migration command or confirm migration, then the CLI does not rewrite the project into a config-source-managed state implicitly.
+- Given a legacy bundled-preset project, when I run `opencode-helper migrate legacy-config` and confirm the operation, then the CLI writes the config-source-managed state needed for the selected source and preserves traceable provenance for the migrated setup.
+- Given migration cannot complete safely, when the migration command runs, then the CLI exits non-zero with actionable diagnostics and leaves the legacy project setup intact.
+
+---
+
+### <a id="us-038"></a>US-038 - Surface source capabilities consistently
+
+Priority:
+- P1
+
+Status:
+- Planned
+
+PR:
+- TBD
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-017](#feat-017)
+
+Related requirements:
+- [REQ-F-031](#req-f-031)
+
+Story:
+- As a developer, I want the CLI to distinguish which sources support discovery, version selection, and updates, so that commands behave predictably across local and remote source types.
+
+Acceptance criteria:
+- Given a registered source, when I run `opencode-helper source list`, then the CLI shows which relevant capabilities that source supports.
+- Given I invoke a capability-dependent command against a source that does not support it, when the command runs, then the CLI exits non-zero with a clear capability error.
+- Given a local directory or local `.tar.gz` source, when the CLI inspects it, then update-check capability is not reported unless explicitly supported by that source type in a future iteration.
+
+---
+
+### <a id="us-039"></a>US-039 - Verify remote bundle integrity before apply or update
+
+Priority:
+- P0
+
+Status:
+- Planned
+
+PR:
+- TBD
+
+Type:
+- User-facing
+
+Related features:
+- [FEAT-018](#feat-018)
+
+Related requirements:
+- [REQ-F-032](#req-f-032)
+
+Story:
+- As a developer, I want remote config bundles to be verified before they are applied or updated, so that I can trust downloaded bundle contents.
+
+Acceptance criteria:
+- Given a remote bundle source with integrity metadata, when I run a remote apply or update flow, then the CLI verifies the downloaded bundle before activation.
+- Given integrity metadata is missing, unreadable, or does not match the downloaded bundle, when verification runs, then the CLI exits non-zero and does not activate the downloaded bundle.
+- Given verification succeeds, when the remote bundle is applied or updated, then the verified bundle is the one resolved into the normalized local bundle root.
 
 ---
 
