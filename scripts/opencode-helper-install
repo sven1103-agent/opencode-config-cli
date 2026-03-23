@@ -304,6 +304,30 @@ copy_release_bundle_to_install_home() {
   printf '%s\n' "$release_dir"
 }
 
+resolve_symlink_target() {
+  path=$1
+  if [ -L "$path" ]; then
+    readlink "$path"
+  fi
+}
+
+real_path() {
+  path=$1
+  if command -v realpath >/dev/null 2>&1; then
+    realpath "$path"
+  elif [ -d "$path" ]; then
+    (CDPATH= cd "$path" && pwd -P)
+  elif [ -L "$path" ]; then
+    target=$(readlink "$path")
+    case "$target" in
+      /*) printf '%s\n' "$target" ;;
+      *) printf '%s\n' "$(CDPATH= cd "$(dirname "$path")" && pwd -P)/$target" ;;
+    esac
+  else
+    printf '%s\n' "$path"
+  fi
+}
+
 activate_release_current_symlink() {
   install_home=$1
   release_dir=$2
@@ -311,16 +335,66 @@ activate_release_current_symlink() {
   current_path="$install_home/current"
   current_tmp="$install_home/current.tmp.$$"
 
+  release_dir_resolved=$(real_path "$release_dir")
+
+  existing_target=$(resolve_symlink_target "$current_path")
+  if [ -n "$existing_target" ]; then
+    existing_resolved=$(real_path "$current_path")
+    if [ "$existing_resolved" = "$release_dir_resolved" ]; then
+      say_info "current symlink already points to $release_dir"
+      return 0
+    fi
+    say_warn "updating current symlink: $existing_target -> $release_dir"
+  else
+    say_info "creating current symlink -> $release_dir"
+  fi
+
   ln -s "$release_dir" "$current_tmp" || {
     err "failed to create staged current symlink"
     return 1
   }
-  mv -f "$current_tmp" "$current_path" || {
-    err "failed to activate current release symlink"
-    rm -f "$current_tmp"
-    return 1
-  }
+  if [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
+    mv -f -h "$current_tmp" "$current_path" || {
+      err "failed to activate current release symlink"
+      rm -f "$current_tmp"
+      return 1
+    }
+  else
+    rm -f "$current_path"
+    mv "$current_tmp" "$current_path" || {
+      err "failed to activate current release symlink"
+      rm -f "$current_tmp"
+      return 1
+    }
+  fi
 
+  verify_current_symlink "$install_home" "$release_dir"
+}
+
+verify_current_symlink() {
+  install_home=$1
+  expected_dir=$2
+  current_path="$install_home/current"
+
+  if [ ! -L "$current_path" ]; then
+    err "post-install verification failed: current symlink missing"
+    return 1
+  fi
+
+  expected_resolved=$(real_path "$expected_dir")
+  actual_resolved=$(real_path "$current_path")
+  if [ "$actual_resolved" != "$expected_resolved" ]; then
+    err "post-install verification failed: current -> $(readlink "$current_path") (expected $expected_dir)"
+    return 1
+  fi
+
+  helper_path="$current_path/scripts/opencode-helper"
+  if [ ! -f "$helper_path" ]; then
+    err "post-install verification failed: helper script missing at $helper_path"
+    return 1
+  fi
+
+  say_ok "verified current symlink -> $expected_dir"
   return 0
 }
 
