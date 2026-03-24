@@ -195,6 +195,52 @@ Optional: `source_repo`, `source_commit`, `release_tag`
 
 For full specification, see [Bundle Manifest Reference](docs/opencode-helper-cli.md#bundle-manifest-reference) in the PRD.
 
+### Per-Repo Plugins and Config Layering
+
+OpenCode supports layered configuration, so repo-specific plugins do not need to live in the same `opencode.json` file that a helper-managed preset may rewrite.
+
+Recommended pattern for per-repo plugin enablement:
+
+```text
+<project-root>/
+  opencode.json
+  .opencode/
+    package.json
+    plugins/
+      my-plugin.js
+```
+
+- Put repo-local plugins in `.opencode/plugins/` so they load only for that repository.
+- If the plugin is published on npm, add it as a dependency in `.opencode/package.json` and load it from a small local plugin file.
+- Let the helper manage `opencode.json`; keep user-owned plugin setup in `.opencode/plugins/` to avoid losing it when presets are reapplied.
+
+Example for the published worktree workflow plugin:
+
+`.opencode/package.json`
+
+```json
+{
+  "dependencies": {
+    "@sven1103/opencode-worktree-workflow": "^0.2.0"
+  }
+}
+```
+
+`.opencode/plugins/worktree-workflow.js`
+
+```js
+export {
+  WorktreeWorkflowPlugin as default,
+  WorktreeWorkflowPlugin,
+} from "@sven1103/opencode-worktree-workflow"
+```
+
+Notes:
+
+- Using `plugin: [...]` directly in `opencode.json` is repo-scoped, but that config can be replaced by bundle apply flows.
+- Using `.opencode/plugins/` is safer for local layering because OpenCode auto-loads project plugins separately from the managed preset file.
+- For user-only repo customization, keep `.opencode/plugins/` uncommitted or ignore it in `.gitignore`.
+
 ### Calling Agents
 
 ```bash
