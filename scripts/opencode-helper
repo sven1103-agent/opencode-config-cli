@@ -275,6 +275,7 @@ Commands:
   source add <location>         Register a config source
   source list                   List registered config sources
   source remove <id>            Unregister a config source
+  bundle apply <source-id>      Apply a preset from a config bundle
   validate                      Verify setup health and detect drift
   version                       Show CLI version and bundled asset identity
 
@@ -416,7 +417,7 @@ EOF
 
 usage_validate() {
   cat <<EOF
-validate - check manifest presence, config file, checksums, and schema integrity
+  validate - check manifest presence, config file, checksums, and schema integrity
 
 Usage:
   $(command_name) validate [--project-root PATH] [--output PATH]
@@ -679,6 +680,561 @@ source_location_exists() {
   resolved_location=$(source_resolve_location "$(source_detect_type "$location")" "$location")
   registry_json=$(source_registry_load)
   echo "$registry_json" | grep -q "\"location\": \"$resolved_location\"" 2>/dev/null
+}
+
+usage_bundle_apply() {
+  cat <<EOF
+bundle apply - apply a preset from a registered config bundle
+
+Usage:
+  $(command_name) bundle apply <source-id> [--version <tag>] --preset <name> [--project-root PATH] [--force] [--dry-run]
+
+Arguments:
+  source-id      Registered config source ID (see 'source list')
+  --preset NAME  Preset name to apply from the bundle manifest
+
+Options:
+  --version TAG    Bundle version/tag to apply (placeholder for future github-release support)
+  --project-root PATH   Target project root (default: current directory)
+  --force          Allow overwrite of existing output file
+  --dry-run        Print planned actions without writing
+
+Examples:
+  $(command_name) bundle apply 12345 --preset default --project-root ./myproject
+  $(command_name) bundle apply 12345 --preset minimal --project-root ./myproject --force
+  $(command_name) bundle apply 12345 --preset default --project-root ./myproject --dry-run
+EOF
+}
+
+# === Bundle Apply Functions ===
+
+# Resolve a source ID to its type and location from the registry
+# Returns: sets source_type, source_name, source_location
+bundle_resolve_source() {
+  source_id=$1
+
+  registry_path=$(source_registry_path)
+
+  if [ ! -f "$registry_path" ]; then
+    err "source not found: $source_id"
+    return "$EXIT_MISSING"
+  fi
+
+  # Parse registry entry for this source ID using awk
+  # Similar pattern to cmd_source_list
+  resolved=$(awk -v target_id="$source_id" '
+    BEGIN { 
+      RS = ""
+      FS = "\n"
+    }
+    {
+      id = ""; name = ""; type = ""; location = ""
+      for (i = 1; i <= NF; i++) {
+        if ($i ~ /"id"[[:space:]]*:/) {
+          sub(/.*"id"[[:space:]]*:[[:space:]]*/, "", $i)
+          sub(/[[:space:]]*,.*$/, "", $i)
+          gsub(/[ "]/, "", $i)
+          id = $i
+        }
+        if ($i ~ /"name"[[:space:]]*:/) {
+          sub(/.*"name"[[:space:]]*:[[:space:]]*/, "", $i)
+          sub(/[[:space:]]*,.*$/, "", $i)
+          gsub(/"/, "", $i)
+          name = $i
+        }
+        if ($i ~ /"type"[[:space:]]*:/) {
+          sub(/.*"type"[[:space:]]*:[[:space:]]*/, "", $i)
+          sub(/[[:space:]]*,.*$/, "", $i)
+          gsub(/"/, "", $i)
+          type = $i
+        }
+        if ($i ~ /"location"[[:space:]]*:/) {
+          sub(/.*"location"[[:space:]]*:[[:space:]]*/, "", $i)
+          sub(/[[:space:]]*,.*$/, "", $i)
+          gsub(/"/, "", $i)
+          location = $i
+        }
+      }
+      if (id == target_id) {
+        printf "type:%s\n", type
+        printf "name:%s\n", name
+        printf "location:%s\n", location
+        exit
+      }
+    }
+  ' "$registry_path")
+
+  if [ -z "$resolved" ]; then
+    err "source not found: $source_id"
+    return "$EXIT_MISSING"
+  fi
+
+  source_type=$(printf '%s\n' "$resolved" | awk -F ':' '/^type:/ {for(i=2;i<=NF;i++) printf "%s", $i; print ""; exit}')
+  source_name=$(printf '%s\n' "$resolved" | awk -F ':' '/^name:/ {for(i=2;i<=NF;i++) printf "%s", $i; print ""; exit}')
+  source_location=$(printf '%s\n' "$resolved" | awk -F ':' '/^location:/ {for(i=2;i<=NF;i++) printf "%s", $i; print ""; exit}')
+
+  if [ -z "$source_type" ] || [ -z "$source_location" ]; then
+    err "source not found: $source_id"
+    return "$EXIT_MISSING"
+  fi
+
+  [ -n "$source_name" ] || source_name="$source_id"
+
+  return "$EXIT_OK"
+}
+
+# Normalize a source to a local bundle root directory
+# For local-dir: returns the path as-is
+# For local-tarball: extracts to temp dir and returns extracted path
+# For github-release: placeholder that returns error in V2 baseline
+# Returns: sets bundle_root (the local root path)
+bundle_resolve_to_local() {
+  source_type=$1
+  source_location=$2
+
+  case "$source_type" in
+    local-dir)
+      bundle_root="$source_location"
+      # Validate it exists
+      if [ ! -d "$bundle_root" ]; then
+        err "source directory not found: $bundle_root"
+        return "$EXIT_MISSING"
+      fi
+      ;;
+    local-tarball)
+      if [ ! -f "$source_location" ]; then
+        err "source tarball not found: $source_location"
+        return "$EXIT_MISSING"
+      fi
+      # Extract to temp directory
+      tmp_extract=$(mktemp -d "${TMPDIR:-/tmp}/opencode-helper-bundle-apply.XXXXXX") || {
+        err "failed to create temp directory for extraction"
+        return "$EXIT_ERR"
+      }
+      if ! tar -xzf "$source_location" -C "$tmp_extract" 2>/dev/null; then
+        rm -rf "$tmp_extract"
+        err "failed to extract tarball: $source_location"
+        return "$EXIT_ERR"
+      fi
+      # Find the extracted root (first directory in the tarball)
+      bundle_root=$(find "$tmp_extract" -mindepth 1 -maxdepth 1 -type d | head -1)
+      if [ -z "$bundle_root" ]; then
+        rm -rf "$tmp_extract"
+        err "tarball has no root directory: $source_location"
+        return "$EXIT_ERR"
+      fi
+      # Extract will be cleaned up by the caller
+      ;;
+    github-release)
+      err "github-release sources not yet supported"
+      return "$EXIT_ERR"
+      ;;
+    *)
+      err "unknown source type: $source_type"
+      return "$EXIT_ERR"
+      ;;
+  esac
+
+  # Validate manifest exists
+  manifest_path="$bundle_root/opencode-bundle.manifest.json"
+  if [ ! -f "$manifest_path" ]; then
+    [ "$source_type" = "local-tarball" ] && rm -rf "$tmp_extract"
+    err "missing bundle manifest: $manifest_path"
+    return "$EXIT_MISSING"
+  fi
+
+  # Validate manifest structure
+  manifest_version=$(awk -F '"' '/"manifest_version"[[:space:]]*:/ {print $4; exit}' "$manifest_path" 2>/dev/null)
+  if [ "$manifest_version" != "1" ]; then
+    [ "$source_type" = "local-tarball" ] && rm -rf "$tmp_extract"
+    err "unsupported manifest version: $manifest_version (expected 1)"
+    return "$EXIT_DRIFT"
+  fi
+
+  return "$EXIT_OK"
+}
+
+# Read a preset entry from the manifest by name
+# Arguments: manifest_path preset_name
+# Returns: sets preset_entrypoint, preset_prompt_files (newline-separated paths)
+bundle_read_preset_entry() {
+  manifest_path=$1
+  preset_name=$2
+
+  if [ ! -f "$manifest_path" ]; then
+    err "manifest not found: $manifest_path"
+    return "$EXIT_MISSING"
+  fi
+
+  # Parse preset entry using awk - find the preset object by name
+  # Uses a simpler approach based on the existing preset_list_sources_read_manifest
+  preset_data=$(awk -v target_name="$preset_name" '
+    BEGIN {
+      in_presets = 0
+      brace_count = 0
+      object_brace = 0
+      entrypoint = ""
+      prompt_files = ""
+    }
+    # Detect presets array start
+    /"presets"[[:space:]]*:/ {
+      in_presets = 1
+      if (/\[\]/) {
+        # Empty array
+        in_presets = 0
+        next
+      }
+      if (/\[\s*\{/) {
+        # [ followed immediately by {
+        brace_count = 1
+        object_brace = 1
+        current_name = ""
+        current_entrypoint = ""
+        current_prompt_files = ""
+      }
+    }
+    # Track brackets
+    in_presets && /\{/ {
+      brace_count++
+      if (brace_count > 0) object_brace = brace_count
+    }
+    in_presets && /\}/ {
+      brace_count--
+      if (brace_count == 0) {
+        # End of current preset object
+        if (object_brace > 0 && current_name == target_name) {
+          entrypoint = current_entrypoint
+          prompt_files = current_prompt_files
+        }
+        object_brace = 0
+      }
+    }
+    # Within preset object (brace_count > 0 means inside a preset object)
+    in_presets && brace_count > 0 {
+      # Extract name value
+      if ($0 ~ /"name"[[:space:]]*:/) {
+        val = $0
+        sub(/.*"name"[[:space:]]*:[[:space:]]*/, "", val)
+        sub(/[[:space:]]*[,}].*$/, "", val)
+        gsub(/"/, "", val)
+        current_name = val
+      }
+      # Extract entrypoint value
+      if ($0 ~ /"entrypoint"[[:space:]]*:/) {
+        val = $0
+        sub(/.*"entrypoint"[[:space:]]*:[[:space:]]*/, "", val)
+        sub(/[[:space:]]*[,}].*$/, "", val)
+        gsub(/"/, "", val)
+        current_entrypoint = val
+      }
+      # Extract prompt_files value
+      if ($0 ~ /"prompt_files"[[:space:]]*:/) {
+        val = $0
+        sub(/.*"prompt_files"[[:space:]]*:[[:space:]]*/, "", val)
+        sub(/[[:space:]]*\[/, "", val)
+        sub(/\].*/, "", val)
+        gsub(/"/, "", val)
+        current_prompt_files = val
+      }
+    }
+    END {
+      if (entrypoint != "") {
+        print "entrypoint:" entrypoint
+      }
+      if (prompt_files != "") {
+        print "prompt_files:" prompt_files
+      }
+    }
+  ' "$manifest_path")
+
+  if [ -z "$preset_data" ]; then
+    err "preset not found: $preset_name"
+    return "$EXIT_MISSING"
+  fi
+
+  preset_entrypoint=$(printf '%s\n' "$preset_data" | awk -F ':' '/^entrypoint:/ {for(i=2;i<=NF;i++) printf "%s", $i; print ""; exit}')
+  prompt_files_data=$(printf '%s\n' "$preset_data" | awk '/^prompt_files:/ {found=1; sub(/^prompt_files:/, ""); print; exit} END {if (!found) exit 1}')
+
+  # Handle prompt_files - they may be comma-separated in a single value
+  preset_prompt_files=""
+  if [ -n "$prompt_files_data" ]; then
+    preset_prompt_files=$(printf '%s\n' "$prompt_files_data" | tr ',' '\n' | while read -r pf; do
+      # Trim whitespace
+      printf '%s\n' "$pf" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
+    done | grep -v '^$')
+  fi
+
+  if [ -z "$preset_entrypoint" ]; then
+    err "preset entrypoint not defined: $preset_name"
+    return "$EXIT_MISSING"
+  fi
+
+  return "$EXIT_OK"
+}
+
+# Apply the preset entrypoint file to the project
+# Returns: exit code (0 for success, EXIT_CONFLICT for existing file without force)
+bundle_apply_preset_file() {
+  bundle_root=$1
+  preset_entrypoint=$2
+  project_root=$3
+  output_path=$4
+  force=$5
+  dry_run=$6
+
+  src_file="$bundle_root/$preset_entrypoint"
+
+  if [ ! -f "$src_file" ]; then
+    err "preset entrypoint not found: $src_file"
+    return "$EXIT_MISSING"
+  fi
+
+  dest_path=$(resolve_output_path "$project_root" "$output_path")
+  dest_dir=$(dirname "$dest_path")
+
+  if [ -e "$dest_path" ] && [ "$force" -ne 1 ]; then
+    err "would overwrite $dest_path (use --force)"
+    return "$EXIT_CONFLICT"
+  fi
+
+  if [ "$dry_run" -eq 1 ]; then
+    log "dry-run: apply $src_file -> $dest_path"
+    return "$EXIT_OK"
+  fi
+
+  mkdir -p "$dest_dir" || return "$EXIT_ERR"
+  cp "$src_file" "$dest_path" || return "$EXIT_ERR"
+  log "applied: $dest_path"
+
+  return "$EXIT_OK"
+}
+
+# Materialize prompt files from the bundle to the project prompts/ directory
+bundle_apply_prompt_files() {
+  bundle_root=$1
+  preset_prompt_files=$2
+  project_root=$3
+  force=$4
+  dry_run=$5
+
+  [ -z "$preset_prompt_files" ] && return "$EXIT_OK"
+
+  prompts_dir="$project_root/prompts"
+  count=0
+
+  printf '%s\n' "$preset_prompt_files" | while IFS= read -r prompt_file; do
+    [ -z "$prompt_file" ] && continue
+
+    src_file="$bundle_root/$prompt_file"
+    if [ ! -f "$src_file" ]; then
+      err "prompt file not found: $src_file"
+      return "$EXIT_MISSING"
+    fi
+
+    prompt_name=$(basename "$prompt_file")
+    dest_file="$prompts_dir/$prompt_name"
+
+    if [ -e "$dest_file" ] && [ "$force" -ne 1 ]; then
+      err "would overwrite prompt $dest_file (use --force)"
+      return "$EXIT_CONFLICT"
+    fi
+
+    if [ "$dry_run" -eq 1 ]; then
+      log "dry-run: apply prompt $src_file -> $dest_file"
+    else
+      mkdir -p "$prompts_dir" || return "$EXIT_ERR"
+      cp "$src_file" "$dest_file" || return "$EXIT_ERR"
+      log "applied prompt: $dest_file"
+    fi
+    count=$((count + 1))
+  done
+  rc=$?
+
+  return $rc
+}
+
+# Write bundle provenance file to .opencode/bundle-provenance.json
+bundle_write_provenance() {
+  project_root=$1
+  source_id=$2
+  source_name=$3
+  source_type=$4
+  bundle_version=$5
+  preset_name=$6
+  entrypoint=$7
+  force=$8
+  dry_run=$9
+
+  provenance_dir="$project_root/.opencode"
+  provenance_file="$provenance_dir/bundle-provenance.json"
+
+  if [ -e "$provenance_file" ] && [ "$force" -ne 1 ]; then
+    err "would overwrite provenance file (use --force)"
+    return "$EXIT_CONFLICT"
+  fi
+
+  if [ "$dry_run" -eq 1 ]; then
+    log "dry-run: write $provenance_file"
+    return "$EXIT_OK"
+  fi
+
+  mkdir -p "$provenance_dir" || return "$EXIT_ERR"
+
+  # Get current timestamp in ISO 8601 format
+  applied_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+  # Build JSON provenance file
+  cat > "$provenance_file" <<PROVEOF
+{
+  "source_id": "$(json_escape "$source_id")",
+  "source_name": "$(json_escape "$source_name")",
+  "source_type": "$(json_escape "$source_type")",
+  "bundle_version": "$(json_escape "$bundle_version")",
+  "preset_name": "$(json_escape "$preset_name")",
+  "entrypoint": "$(json_escape "$entrypoint")",
+  "applied_at": "$applied_at"
+}
+PROVEOF
+
+  log "written: $provenance_file"
+  return "$EXIT_OK"
+}
+
+# Parse arguments for bundle apply command
+# Returns: sets bundle_source_id, bundle_preset_name, bundle_version, project_root, force, dry_run, output
+bundle_apply_parse_args() {
+  bundle_source_id=""
+  bundle_preset_name=""
+  bundle_version=""
+  project_root=$PWD
+  output="opencode.json"
+  force=0
+  dry_run=0
+
+  if [ "$#" -eq 0 ]; then
+    err "bundle apply requires a source-id"
+    return "$EXIT_ERR"
+  fi
+
+  bundle_source_id=$1
+  shift
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --preset)
+        [ "$#" -ge 2 ] || { err "--preset requires NAME"; return "$EXIT_ERR"; }
+        bundle_preset_name=$2
+        shift 2
+        ;;
+      --version)
+        [ "$#" -ge 2 ] || { err "--version requires TAG"; return "$EXIT_ERR"; }
+        bundle_version=$2
+        shift 2
+        ;;
+      --project-root)
+        [ "$#" -ge 2 ] || { err "--project-root requires PATH"; return "$EXIT_ERR"; }
+        project_root=$2
+        shift 2
+        ;;
+      --output)
+        [ "$#" -ge 2 ] || { err "--output requires PATH"; return "$EXIT_ERR"; }
+        output=$2
+        shift 2
+        ;;
+      --force)
+        force=1
+        shift
+        ;;
+      --dry-run)
+        dry_run=1
+        shift
+        ;;
+      -h|--help)
+        return 10
+        ;;
+      *)
+        err "unknown option: $1"
+        return "$EXIT_ERR"
+        ;;
+    esac
+  done
+
+  [ -n "$bundle_source_id" ] || { err "bundle apply requires a source-id"; return "$EXIT_ERR"; }
+  [ -n "$bundle_preset_name" ] || { err "--preset is required"; return "$EXIT_ERR"; }
+  [ -d "$project_root" ] || { err "project root not found: $project_root"; return "$EXIT_MISSING"; }
+
+  return "$EXIT_OK"
+}
+
+# Main bundle apply command handler
+cmd_bundle_apply() {
+  bundle_apply_parse_args "$@" || return $?
+  rc=$?
+
+  if [ "$rc" -eq 10 ]; then
+    usage_bundle_apply
+    return "$EXIT_OK"
+  fi
+
+  # Resolve source ID to type and location
+  bundle_resolve_source "$bundle_source_id" || return $?
+  resolved_source_type=$source_type
+  resolved_source_name=$source_name
+  resolved_source_location=$source_location
+
+  # Handle --version warning for non-github sources
+  if [ -n "$bundle_version" ] && [ "$resolved_source_type" != "github-release" ]; then
+    log "warn: --version not supported for $resolved_source_type sources (ignored)"
+  fi
+
+  # Resolve to local bundle root (may extract tarball)
+  bundle_resolve_to_local "$resolved_source_type" "$resolved_source_location" || return $?
+  bundle_root=$bundle_root
+
+  # Read manifest from bundle root
+  manifest_path="$bundle_root/opencode-bundle.manifest.json"
+
+  # Get bundle version from manifest
+  manifest_bundle_version=$(awk -F '"' '/"bundle_version"[[:space:]]*:/ {print $4; exit}' "$manifest_path" 2>/dev/null)
+  [ -z "$manifest_bundle_version" ] && manifest_bundle_version="unknown"
+
+  # Read preset entry from manifest
+  bundle_read_preset_entry "$manifest_path" "$bundle_preset_name" || {
+    [ "$resolved_source_type" = "local-tarball" ] && rm -rf "$tmp_extract"
+    return $?
+  }
+  preset_entry=$preset_entrypoint
+  preset_pf=$preset_prompt_files
+
+  # Apply preset file
+  bundle_apply_preset_file "$bundle_root" "$preset_entry" "$project_root" "$output" "$force" "$dry_run" || {
+    err_code=$?
+    [ "$resolved_source_type" = "local-tarball" ] && rm -rf "$tmp_extract"
+    return $err_code
+  }
+
+  # Apply prompt files (if any)
+  if [ -n "$preset_pf" ]; then
+    bundle_apply_prompt_files "$bundle_root" "$preset_pf" "$project_root" "$force" "$dry_run" || {
+      err_code=$?
+      [ "$resolved_source_type" = "local-tarball" ] && rm -rf "$tmp_extract"
+      return $err_code
+    }
+  fi
+
+  # Write provenance
+  bundle_write_provenance "$project_root" "$bundle_source_id" "$resolved_source_name" \
+    "$resolved_source_type" "$manifest_bundle_version" "$bundle_preset_name" \
+    "$preset_entry" "$force" "$dry_run" || {
+    err_code=$?
+    [ "$resolved_source_type" = "local-tarball" ] && rm -rf "$tmp_extract"
+    return $err_code
+  }
+
+  # Cleanup extracted tarball
+  [ "$resolved_source_type" = "local-tarball" ] && rm -rf "$tmp_extract"
+
+  return "$EXIT_OK"
 }
 
 # === Source Command Handlers ===
@@ -2426,6 +2982,26 @@ case "$cmd" in
         ;;
       *)
         err "unknown source command: ${sub:-}"; usage; exit "$EXIT_ERR"
+        ;;
+    esac
+    ;;
+  bundle)
+    sub=${1:-}
+    [ "$#" -gt 0 ] && shift
+    case "$sub" in
+      apply)
+        # Check for help flag first
+        if [ "$#" -gt 0 ] && case "$1" in -h|--help) true;; *) false;; esac; then
+          usage_bundle_apply
+          exit "$EXIT_OK"
+        fi
+        source_id=${1:-}
+        [ "$#" -gt 0 ] && shift
+        cmd_bundle_apply "$source_id" "$@"
+        exit $?
+        ;;
+      *)
+        err "unknown bundle command: ${sub:-}"; usage; exit "$EXIT_ERR"
         ;;
     esac
     ;;
