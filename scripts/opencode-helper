@@ -1158,46 +1158,51 @@ preset_list_sources_read_manifest() {
     # Detect presets array start
     /"presets"[[:space:]]*:/ {
       in_presets = 1
-      next
+      # Check if [ is on the same line
+      if (/\[/) {
+        brace_count++
+      }
     }
     # Track brace depth in presets section (both [ ] and { })
+    in_presets && /\[\]/ {
+      # Empty array
+      next
+    }
     in_presets && /\[/ {
       brace_count++
-      next
     }
     in_presets && /\]/ {
       brace_count--
       if (brace_count <= 0) {
         in_presets = 0
       }
-      next
     }
     in_presets && /\{/ {
       brace_count++
-      next
     }
     in_presets && /\}/ {
       brace_count--
       if (brace_count <= 0) {
         in_presets = 0
       }
-      next
     }
     # In presets, look for name and description fields
     in_presets && brace_count > 0 {
       # Extract name value
       if ($0 ~ /"name"[[:space:]]*:/) {
-        sub(/.*"name"[[:space:]]*:[[:space:]]*/, "")
-        sub(/[[:space:]]*,.*$/, "")
-        gsub(/"/, "")
-        name = $0
+        val = $0
+        sub(/.*"name"[[:space:]]*:[[:space:]]*/, "", val)
+        sub(/[[:space:]]*[,}].*$/, "", val)
+        gsub(/"/, "", val)
+        name = val
       }
       # Extract description value
       if ($0 ~ /"description"[[:space:]]*:/) {
-        sub(/.*"description"[[:space:]]*:[[:space:]]*/, "")
-        sub(/[[:space:]]*,.*$/, "")
-        gsub(/"/, "")
-        description = $0
+        val = $0
+        sub(/.*"description"[[:space:]]*:[[:space:]]*/, "", val)
+        sub(/[[:space:]]*[,}].*$/, "", val)
+        gsub(/"/, "", val)
+        description = val
         # When we have both name and description, print the preset line
         if (name != "" && description != "") {
           printf "%s\t%s\t%s\t%s\t%s\n", source_id, source_name, bundle_version, name, description
@@ -1216,14 +1221,19 @@ cmd_preset_list_sources() {
 
   if [ "$registry_json" = "[]" ] || [ -z "$registry_json" ]; then
     log "no sources registered"
+    printf '\nTo add a config source, run: opencode-helper source add <location>\n'
     return "$EXIT_OK"
   fi
 
   sources_found=0
+  validation_errors_file=$(mktemp "${TMPDIR:-/tmp}/opencode-helper-validation-errors.XXXXXX") || {
+    err "failed to create temp file for validation errors"
+    return "$EXIT_ERR"
+  }
 
   # Parse each source entry and process its manifest
   # Using awk to extract fields from JSON, piped to while loop
-  printf '%s\n' "$registry_json" | awk '
+  printf '%s\n' "$registry_json" | awk -v validation_errors_file="$validation_errors_file" '
     BEGIN {
       RS = ""
       FS = "\n"
@@ -1234,13 +1244,14 @@ cmd_preset_list_sources() {
         if ($i ~ /"id"[[:space:]]*:/) { sub(/.*"id"[[:space:]]*:[[:space:]]*/, "", $i); sub(/[[:space:]]*,.*$/, "", $i); gsub(/[ "]/, "", $i); id = $i }
         if ($i ~ /"name"[[:space:]]*:/) { sub(/.*"name"[[:space:]]*:[[:space:]]*/, "", $i); sub(/[[:space:]]*,.*$/, "", $i); gsub(/"/, "", $i); name = $i }
         if ($i ~ /"type"[[:space:]]*:/) { sub(/.*"type"[[:space:]]*:[[:space:]]*/, "", $i); sub(/[[:space:]]*,.*$/, "", $i); gsub(/"/, "", $i); type = $i }
-        if ($i ~ /"location"[[:space:]]*:/) { sub(/.*"location"[[:space:]]*:[[:space:]]*/, "", $i); sub(/[[:space:]]*,.*$/, "", $i); sub(/[[:space:]]*[}].*$/, "", $i); gsub(/"/, "", $i); location = $i }
+        if ($i ~ /"location"[[:space:]]*:/) { sub(/.*"location"[[:space:]]*:[[:space:]]*/, "", $i); sub(/[[:space:]]*,[[:space:]]*$/, "", $i); sub(/[[:space:]]*[}].*$/, "", $i); gsub(/"/, "", $i); location = $i }
       }
       if (id != "" && type != "" && location != "") { printf "%s|%s|%s|%s\n", id, name, type, location }
     }
   ' | {
     while IFS='|' read -r source_id source_name source_type location; do
       sources_found=1
+      manifest_path=""
 
       case "$source_type" in
         local-dir)
@@ -1249,28 +1260,27 @@ cmd_preset_list_sources() {
         local-tarball)
           # Extract manifest to temp file
           manifest_filename="opencode-bundle.manifest.json"
-          tmp_extract=$(mktemp -d "${TMPDIR:-/tmp}/opencode-helper-preset-list.XXXXXX") || continue
-          if tar -xzf "$location" -C "$tmp_extract" "$manifest_filename" 2>/dev/null; then
-            manifest_path="$tmp_extract/$manifest_filename"
-          else
-            rm -rf "$tmp_extract"
-            log "skipping source $source_name: failed to extract manifest from tarball"
+          tmp_extract=$(mktemp -d "${TMPDIR:-/tmp}/opencode-helper-preset-list.XXXXXX")
+          if [ -z "$tmp_extract" ] || ! tar -xzf "$location" -C "$tmp_extract" "$manifest_filename" 2>/dev/null; then
+            printf "warn: source '%s' (ID: %s) excluded - reason: failed to extract manifest from tarball at '%s'\n" "$source_name" "$source_id" "$location" >> "$validation_errors_file"
+            [ -n "$tmp_extract" ] && rm -rf "$tmp_extract"
             continue
           fi
+          manifest_path="$tmp_extract/$manifest_filename"
           ;;
         github-release)
-          log "skipping source $source_name: GitHub release sources not yet supported"
+          printf "warn: source '%s' (ID: %s) excluded - reason: GitHub release sources not yet supported\n" "$source_name" "$source_id" >> "$validation_errors_file"
           continue
           ;;
         *)
-          log "skipping source $source_name: unknown type $source_type"
+          printf "warn: source '%s' (ID: %s) excluded - reason: unknown source type '%s'\n" "$source_name" "$source_id" "$source_type" >> "$validation_errors_file"
           continue
           ;;
       esac
 
       # Check if manifest exists
       if [ ! -f "$manifest_path" ]; then
-        log "skipping source $source_name: manifest not found at $manifest_path"
+        printf "warn: source '%s' (ID: %s) excluded - reason: manifest not found at '%s'\n" "$source_name" "$source_id" "$manifest_path" >> "$validation_errors_file"
         [ "$source_type" = "local-tarball" ] && rm -rf "$tmp_extract"
         continue
       fi
@@ -1297,8 +1307,17 @@ cmd_preset_list_sources() {
     rm -f /tmp/opencode-helper-sources-found.$$
   fi
 
+  # Print validation error summary if any
+  if [ -s "$validation_errors_file" ]; then
+    printf '\n=== Validation Errors ===\n' >&2
+    cat "$validation_errors_file" >&2
+    printf '=== End of Validation Errors ===\n' >&2
+  fi
+  rm -f "$validation_errors_file"
+
   if [ "$sources_found" -eq 0 ]; then
     log "no sources registered"
+    printf '\nTo add a config source, run: opencode-helper source add <location>\n'
     return "$EXIT_OK"
   fi
 
