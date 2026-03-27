@@ -3481,12 +3481,37 @@ selfupdate_install_release() {
     return 1
   }
   
-  rm -rf "$release_dir.tmp.$$"
-  cp -R "$src_bundle" "$release_dir.tmp.$$" || {
-    err "failed to stage release bundle copy"
+  # Handle both tarball and extracted directory
+  if [ -f "$src_bundle" ]; then
+    # It's a tarball - extract it
     rm -rf "$release_dir.tmp.$$"
+    mkdir -p "$release_dir.tmp.$$" || {
+      err "failed to create temp release directory"
+      return 1
+    }
+    tar -xf "$src_bundle" -C "$release_dir.tmp.$$" || {
+      err "failed to extract release bundle"
+      rm -rf "$release_dir.tmp.$$"
+      return 1
+    }
+    # Move the extracted contents up one level (remove the opencode-helper-VERSION prefix)
+    inner_dir=$(find "$release_dir.tmp.$$" -mindepth 1 -maxdepth 1 -type d | head -1)
+    if [ -n "$inner_dir" ]; then
+      mv "$inner_dir"/* "$release_dir.tmp.$$/" 2>/dev/null || true
+      rmdir "$inner_dir" 2>/dev/null || true
+    fi
+  elif [ -d "$src_bundle" ]; then
+    # It's already a directory - copy directly
+    rm -rf "$release_dir.tmp.$$"
+    cp -R "$src_bundle" "$release_dir.tmp.$$" || {
+      err "failed to stage release bundle copy"
+      rm -rf "$release_dir.tmp.$$"
+      return 1
+    }
+  else
+    err "invalid source bundle: $src_bundle"
     return 1
-  }
+  fi
   
   rm -rf "$release_dir"
   mv "$release_dir.tmp.$$" "$release_dir" || {
