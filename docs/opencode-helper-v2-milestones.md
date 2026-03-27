@@ -210,7 +210,7 @@ Legacy migration path:
 | 4 | `US-033` | ✅ Merged | PR #55 |
 | 5 | `US-027` | ✅ Merged | PR #56 |
 | 6 | `US-028` | ✅ Merged | PR #57 |
-| 7 | `US-029` | ⏳ Open | - |
+| 7 | `US-029` | ✅ Done | (implemented in US-028) |
 | 8 | `US-034` | ✅ Merged | PR #62 |
 | 9 | `US-038` | ✅ Merged | PR #63 |
 | 10 | `US-035` | ✅ Merged | PR #64 |
