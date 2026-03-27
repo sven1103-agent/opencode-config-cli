@@ -139,9 +139,9 @@ Primary stories:
 - `US-039` - Verify remote bundle integrity before apply or update
 
 Implementation:
-- `US-035`: 🔄 In Review (PR #64)
-- `US-038`: ⏳ Open
-- `US-039`: ⏳ Open
+- `US-035`: ✅ Merged (PR #64)
+- `US-038`: ✅ Merged (PR #63)
+- `US-039`: 🔄 In Review (PR #65)
 
 Why here:
 - Remote release support depends on the manifest contract, normalized resolution, and local apply flow already being stable.
@@ -212,9 +212,9 @@ Legacy migration path:
 | 6 | `US-028` | ✅ Merged | PR #57 |
 | 7 | `US-029` | ⏳ Open | - |
 | 8 | `US-034` | ✅ Merged | PR #62 |
-| 9 | `US-038` | ⏳ Open | - |
-| 10 | `US-035` | 🔄 In Review | PR #64 |
-| 11 | `US-039` | ⏳ Open | - |
+| 9 | `US-038` | ✅ Merged | PR #63 |
+| 10 | `US-035` | ✅ Merged | PR #64 |
+| 11 | `US-039` | 🔄 In Review | PR #65 |
 | 12 | `US-030` | ⏳ Open | - |
 | 13 | `US-031` | ⏳ Open | - |
 | 14 | `US-037` | ⏳ Open | - |
