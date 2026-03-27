@@ -7,6 +7,7 @@ EXIT_ERR=1
 EXIT_MISSING=2
 EXIT_DRIFT=3
 EXIT_CONFLICT=4
+EXIT_CAPABILITY=5
 
 HELPER_VERSION="0.1.0"
 
@@ -292,6 +293,7 @@ Exit codes:
   2 required files missing
   3 drift detected
   4 overwrite blocked
+  5 capability not supported
 EOF
 }
 
@@ -513,6 +515,31 @@ source_detect_type() {
   return "$EXIT_OK"
 }
 
+# Get capability flags for a source type
+# Args: source_type
+# Returns: prints discovery, version_selection, update_check as "true" or "false"
+source_capabilities() {
+  source_type=$1
+
+  case "$source_type" in
+    local-dir)
+      printf 'discovery=true\nversion_selection=false\nupdate_check=false\n'
+      ;;
+    local-tarball)
+      printf 'discovery=true\nversion_selection=false\nupdate_check=false\n'
+      ;;
+    github-release)
+      printf 'discovery=true\nversion_selection=true\nupdate_check=true\n'
+      ;;
+    *)
+      # Unknown source type - default to no capabilities
+      printf 'discovery=false\nversion_selection=false\nupdate_check=false\n'
+      ;;
+  esac
+
+  return "$EXIT_OK"
+}
+
 # Validate source location exists and is accessible
 # Returns: 0 if valid, non-zero exit code if invalid
 source_validate_location() {
@@ -557,6 +584,64 @@ source_validate_location() {
       return "$EXIT_ERR"
       ;;
   esac
+
+  return "$EXIT_OK"
+}
+
+# Validate that a source has a required capability
+# Args: source_id capability_name
+# Returns: EXIT_OK if source has capability, EXIT_CAPABILITY (5) if not
+source_require_capability() {
+  source_id=$1
+  capability=$2
+
+  registry_path=$(source_registry_path)
+
+  if [ ! -f "$registry_path" ]; then
+    err "source not found: $source_id"
+    return "$EXIT_MISSING"
+  fi
+
+  # Parse capabilities from registry entry
+  # Use awk to extract the capability value
+  capability_value=$(awk -v target_id="$source_id" -v cap="$capability" '
+    BEGIN {
+      RS = ""
+      FS = "\n"
+    }
+    {
+      id = ""
+      in_entry = 0
+      for (i = 1; i <= NF; i++) {
+        if ($i ~ /"id"[[:space:]]*:/) {
+          sub(/.*"id"[[:space:]]*:[[:space:]]*/, "", $i)
+          sub(/[[:space:]]*,.*$/, "", $i)
+          gsub(/[ "]/, "", $i)
+          id = $i
+        }
+        if (id == target_id && $i ~ "\"" cap "\"") {
+          # Found capability field - extract value
+          sub(/.*"cap"[[:space:]]*:[[:space:]]*/, "", $i)
+          sub(/[[:space:]]*,.*$/, "", $i)
+          sub(/[[:space:]]*[}].*$/, "", $i)
+          gsub(/"/, "", $i)
+          print $i
+          exit
+        }
+      }
+    }
+  ' "$registry_path")
+
+  if [ -z "$capability_value" ]; then
+    # Capability not found or false - check the specific capability
+    err "source $source_id does not support $capability"
+    return "$EXIT_CAPABILITY"
+  fi
+
+  if [ "$capability_value" != "true" ]; then
+    err "source $source_id does not support $capability"
+    return "$EXIT_CAPABILITY"
+  fi
 
   return "$EXIT_OK"
 }
@@ -1315,6 +1400,12 @@ cmd_source_add() {
     return "$EXIT_ERR"
   }
 
+  # Get capabilities for this source type
+  capabilities_output=$(source_capabilities "$source_type")
+  discovery=$(printf '%s\n' "$capabilities_output" | awk -F '=' '/^discovery=/ {print $2}')
+  version_selection=$(printf '%s\n' "$capabilities_output" | awk -F '=' '/^version_selection=/ {print $2}')
+  update_check=$(printf '%s\n' "$capabilities_output" | awk -F '=' '/^update_check=/ {print $2}')
+
   # Validate location exists
   source_validate_location "$source_type" "$location" || return $?
 
@@ -1355,7 +1446,12 @@ cmd_source_add() {
     "name": "$(json_escape "$source_name")",
     "type": "$source_type",
     "location": "$(json_escape "$resolved_location")",
-    "added_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    "added_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+    "capabilities": {
+      "discovery": $discovery,
+      "version_selection": $version_selection,
+      "update_check": $update_check
+    }
   }
 EOF
 )
@@ -1365,11 +1461,11 @@ EOF
 
   # Add new entry (simple array append)
   if [ "$registry_json" = "[]" ]; then
-    new_registry=$'[\n'"$source_entry"$'\n]'
+    new_registry=$'[\n\n'"$source_entry"$'\n\n]'
   else
     # Remove trailing ] and newline, then append
     new_registry=$(echo "$registry_json" | sed '$ d' | sed '$ s/,$//')
-    new_registry="$new_registry,"$'\n'"$source_entry"$'\n]'
+    new_registry="$new_registry,"$'\n\n'"$source_entry"$'\n\n]'
   fi
 
   # Save registry
@@ -1434,16 +1530,50 @@ cmd_source_list() {
           gsub(/"/, "", $i)
           added_at = $i
         }
+        # Extract capabilities (default to false if not present for backward compatibility)
+        if ($i ~ /"discovery"[[:space:]]*:/) {
+          sub(/.*"discovery"[[:space:]]*:[[:space:]]*/, "", $i)
+          sub(/[[:space:]]*,.*$/, "", $i)
+          sub(/[[:space:]]*[}].*$/, "", $i)
+          gsub(/"/, "", $i)
+          gsub(/[[:space:]]/, "", $i)
+          discovery = ($i == "true") ? "Yes" : "No"
+        }
+        if ($i ~ /"version_selection"[[:space:]]*:/) {
+          sub(/.*"version_selection"[[:space:]]*:[[:space:]]*/, "", $i)
+          sub(/[[:space:]]*,.*$/, "", $i)
+          sub(/[[:space:]]*[}].*$/, "", $i)
+          gsub(/"/, "", $i)
+          gsub(/[[:space:]]/, "", $i)
+          version_selection = ($i == "true") ? "Yes" : "No"
+        }
+        if ($i ~ /"update_check"[[:space:]]*:/) {
+          sub(/.*"update_check"[[:space:]]*:[[:space:]]*/, "", $i)
+          sub(/[[:space:]]*,.*$/, "", $i)
+          sub(/[[:space:]]*[}].*$/, "", $i)
+          gsub(/"/, "", $i)
+          gsub(/[[:space:]]/, "", $i)
+          update_check = ($i == "true") ? "Yes" : "No"
+        }
       }
+      # Set defaults if capabilities not present (backward compatibility)
+      if (discovery == "") discovery = "No"
+      if (version_selection == "") version_selection = "No"
+      if (update_check == "") update_check = "No"
+      
       if (id != "") {
         printf "id\t%s\n", id
         printf "name\t%s\n", name
         printf "type\t%s\n", type
         printf "location\t%s\n", location
         printf "added_at\t%s\n", added_at
+        printf "discovery\t%s\n", discovery
+        printf "version\t%s\n", version_selection
+        printf "update\t%s\n", update_check
         printf "---\n"
       }
       id = ""; name = ""; type = ""; location = ""; added_at = ""
+      discovery = ""; version_selection = ""; update_check = ""
     }
   ' "$registry_path"
 
