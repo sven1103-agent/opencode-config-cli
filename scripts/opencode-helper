@@ -3481,14 +3481,15 @@ selfupdate_install_release() {
     return 1
   }
   
+  rm -rf "$release_dir.tmp.$$"
+  mkdir -p "$release_dir.tmp.$$" || {
+    err "failed to create temp release directory"
+    return 1
+  }
+  
   # Handle both tarball and extracted directory
   if [ -f "$src_bundle" ]; then
     # It's a tarball - extract it
-    rm -rf "$release_dir.tmp.$$"
-    mkdir -p "$release_dir.tmp.$$" || {
-      err "failed to create temp release directory"
-      return 1
-    }
     tar -xf "$src_bundle" -C "$release_dir.tmp.$$" || {
       err "failed to extract release bundle"
       rm -rf "$release_dir.tmp.$$"
@@ -3501,15 +3502,17 @@ selfupdate_install_release() {
       rmdir "$inner_dir" 2>/dev/null || true
     fi
   elif [ -d "$src_bundle" ]; then
-    # It's already a directory - copy directly
-    rm -rf "$release_dir.tmp.$$"
-    cp -R "$src_bundle" "$release_dir.tmp.$$" || {
-      err "failed to stage release bundle copy"
+    # It's already a directory (from selfupdate_download_and_verify) - copy contents
+    # The src_bundle is like /tmp/.../extracted/opencode-helper-VERSION
+    # We need to copy its CONTENTS, not the directory itself
+    cp -R "$src_bundle"/* "$release_dir.tmp.$$/" || {
+      err "failed to copy release bundle contents"
       rm -rf "$release_dir.tmp.$$"
       return 1
     }
   else
     err "invalid source bundle: $src_bundle"
+    rm -rf "$release_dir.tmp.$$"
     return 1
   fi
   
