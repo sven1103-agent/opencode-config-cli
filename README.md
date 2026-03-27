@@ -16,6 +16,98 @@ opencode-helper version
 opencode-helper init --project-root .
 ```
 
+## Upgrading to V2 (Config Source Management)
+
+The V2 CLI introduces **config source management** — a new way to manage your OpenCode configuration using registered sources instead of bundled presets.
+
+### What's New in V2
+
+| Feature | Description |
+|---------|-------------|
+| `source` commands | Register and manage config sources (`source add`, `source list`, `source remove`) |
+| `bundle apply` | Apply presets from registered sources |
+| `bundle status` | View provenance of applied bundles |
+| `bundle update` | Check for and apply updates from update-capable sources |
+| `migrate legacy-config` | Explicitly migrate V1 legacy projects to V2 |
+| GitHub releases | Register GitHub repositories as config sources with version selection |
+| Integrity verification | Remote bundles are verified via SHA256 checksums before apply |
+
+### Upgrade Steps
+
+**1. Update the CLI:**
+
+```sh
+# Upgrade to latest V2+ release
+opencode-helper self-update
+
+# Or install fresh
+curl -fsSL https://github.com/sven1103-agent/opencode-agents/releases/latest/download/install.sh | sh
+```
+
+**2. Verify upgrade:**
+
+```sh
+opencode-helper version
+# Should show V2+ (2.0.0 or higher)
+```
+
+**3. For existing V1 projects:**
+
+V1 projects (using `.opencode/opencode-helper-manifest.tsv`) will continue to work. The CLI will detect legacy setups and show migration guidance.
+
+To migrate explicitly:
+
+```sh
+# Check current status
+opencode-helper bundle status --project-root ./myproject
+
+# Migrate to V2 (requires confirmation)
+opencode-helper migrate legacy-config --project-root ./myproject
+```
+
+**4. Register a config source (optional):**
+
+```sh
+# Register a GitHub release as config source
+opencode-helper source add sven1103-agent/opencode-agents --name my-config
+
+# List registered sources
+opencode-helper source list
+
+# Apply a preset from the source
+opencode-helper bundle apply <source-id> --preset openai --project-root ./myproject
+
+# Check bundle status
+opencode-helper bundle status --project-root ./myproject
+
+# Check for updates
+opencode-helper bundle update <source-id>
+```
+
+### V2 Project Layout
+
+```text
+<project-root>/
+  opencode.json
+  .opencode/
+    bundle-provenance.json    # V2: tracks applied bundle source
+    config-sources.json       # V2: registered sources
+    opencode-helper-manifest.tsv  # V1: legacy (read-only, preserved)
+    schemas/
+      handoff.schema.json
+      result.schema.json
+```
+
+### Migration from V1 to V2
+
+| V1 Command | V2 Equivalent |
+|------------|---------------|
+| `opencode-helper init --preset <name>` | `opencode-helper source add <repo>` + `bundle apply` |
+| `opencode-helper preset list` | `opencode-helper preset list --sources` |
+| (no equivalent) | `opencode-helper bundle status` |
+| (no equivalent) | `opencode-helper bundle update` |
+| (automatic on upgrade) | `opencode-helper migrate legacy-config` |
+
 ## Install Options
 
 ### Custom install path (`--bin-dir`)
