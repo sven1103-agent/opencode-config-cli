@@ -141,7 +141,7 @@ Primary stories:
 Implementation:
 - `US-035`: ✅ Merged (PR #64)
 - `US-038`: ✅ Merged (PR #63)
-- `US-039`: 🔄 In Review (PR #65)
+- `US-039`: ✅ Merged (PR #65)
 
 Why here:
 - Remote release support depends on the manifest contract, normalized resolution, and local apply flow already being stable.
@@ -214,7 +214,7 @@ Legacy migration path:
 | 8 | `US-034` | ✅ Merged | PR #62 |
 | 9 | `US-038` | ✅ Merged | PR #63 |
 | 10 | `US-035` | ✅ Merged | PR #64 |
-| 11 | `US-039` | 🔄 In Review | PR #65 |
+| 11 | `US-039` | ✅ Merged | PR #65 |
 | 12 | `US-030` | ⏳ Open | - |
 | 13 | `US-031` | ⏳ Open | - |
 | 14 | `US-037` | ⏳ Open | - |
