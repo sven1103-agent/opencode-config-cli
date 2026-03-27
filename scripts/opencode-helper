@@ -64,6 +64,25 @@ json_escape() {
   printf '%s' "$1" | perl -pe 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\r/\\r/g; s/\n/\\n/g'
 }
 
+# Compare two version strings using semantic versioning
+# Args: v1 v2
+# Returns: 0 if v1 < v2, 1 if v1 > v2, 2 if equal
+version_compare() {
+  v1=$1
+  v2=$2
+
+  # Use sort -V for semantic version comparison
+  lower=$(printf '%s\n%s\n' "$v1" "$v2" | sort -V | head -1)
+
+  if [ "$lower" = "$v1" ] && [ "$v1" != "$v2" ]; then
+    return 0  # v1 < v2
+  elif [ "$lower" = "$v2" ] && [ "$v1" != "$v2" ]; then
+    return 1  # v1 > v2
+  else
+    return 2  # v1 = v2
+  fi
+}
+
 schema_source_file() {
   case "$1" in
     handoff) printf '%s\n' "$VENDORED_SCHEMA_DIR/handoff.schema.json" ;;
@@ -1900,10 +1919,16 @@ cmd_bundle_update() {
     return "$EXIT_ERR"
   fi
 
-  # Compare versions (simple string comparison for GitHub tags)
-  if [ "$current_version" = "$latest_version" ]; then
+  # Compare versions using semantic version comparison
+  # version_compare returns: 0 if v1 < v2, 1 if v1 > v2, 2 if equal
+  version_compare "$current_version" "$latest_version"
+  cmp_result=$?
+
+  if [ "$cmp_result" -eq 2 ]; then
     log "already at latest version: $current_version"
     return "$EXIT_OK"
+  elif [ "$cmp_result" -eq 1 ]; then
+    log "warning: current version is newer than latest (unexpected for GitHub tags)"
   fi
 
   log "current version:  $current_version"
