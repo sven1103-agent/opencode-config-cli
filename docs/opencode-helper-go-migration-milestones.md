@@ -20,8 +20,8 @@ The goal is to migrate from bash to Go for better JSON handling, testability, an
 
 | Status | Count | Legend |
 |--------|-------|--------|
-| 🔄 In Progress | 0 | Currently being implemented |
-| ⏳ Open | 12 | Not yet started |
+| 🔄 In Progress | 1 | Currently being implemented |
+| ⏳ Open | 11 | Not yet started |
 
 ---
 
@@ -40,7 +40,7 @@ Primary stories:
 - `US-041` - Add GitHub Actions CI
 
 Implementation:
-- `US-040`: ⏳ Open
+- `US-040`: 🔄 In Progress (PR #83)
 - `US-041`: ⏳ Open
 
 Why first:
@@ -172,7 +172,7 @@ Polish depends on extended:
 
 | # | Story | Status | Description |
 |---|-------|--------|-------------|
-| 1 | `US-040` | ⏳ Open | Set up Go project structure |
+| 1 | `US-040` | 🔄 In Progress | Set up Go project structure (PR #83) |
 | 2 | `US-041` | ⏳ Open | Add GitHub Actions CI |
 | 3 | `US-042` | ⏳ Open | Implement init command |
 | 4 | `US-043` | ⏳ Open | Implement preset list/use |
