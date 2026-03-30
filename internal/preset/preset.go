@@ -7,7 +7,8 @@ import (
 	"path/filepath"
 )
 
-// ValidPresets returns the list of valid preset names.
+// ValidPresets returns the list of valid preset names (for reference).
+// Note: Preset selection will be handled via bundle/source commands (US-045).
 func ValidPresets() []string {
 	return []string{
 		"mixed",
@@ -18,39 +19,36 @@ func ValidPresets() []string {
 	}
 }
 
-// PresetFileName returns the filename for a given preset name.
-func PresetFileName(name string) string {
-	return fmt.Sprintf("opencode.%s.json", name)
-}
-
-// FindPreset searches for a preset file in common locations.
-// Returns the full path if found, or an error if not found.
-func FindPreset(name string) (string, error) {
-	// Check for bundled presets relative to the binary
-	// In development, check the repo root
-	possiblePaths := []string{
-		filepath.Join(".", PresetFileName(name)),
-		filepath.Join("..", PresetFileName(name)),
-	}
-
-	// Check executable's directory
+// GetDefaultConfig returns the default bundled config.
+// The config is read from a bundled file that comes with the installation.
+func GetDefaultConfig() (string, error) {
+	// First try: read from bundled configs directory (relative to executable)
 	execPath, err := os.Executable()
 	if err == nil {
 		execDir := filepath.Dir(execPath)
-		possiblePaths = append(possiblePaths, filepath.Join(execDir, PresetFileName(name)))
-	}
-
-	for _, path := range possiblePaths {
-		if _, err := os.Stat(path); err == nil {
-			return path, nil
+		bundledPath := filepath.Join(execDir, "presets", "default.json")
+		if data, err := os.ReadFile(bundledPath); err == nil {
+			return string(data), nil
 		}
 	}
 
-	return "", fmt.Errorf("preset not found: %s", name)
+	// Second try: development mode (check repo root)
+	possiblePaths := []string{
+		"opencode.mixed.json",
+		"opencode.openai.json",
+		"opencode.json",
+	}
+	for _, path := range possiblePaths {
+		if data, err := os.ReadFile(path); err == nil {
+			return string(data), nil
+		}
+	}
+
+	return "", fmt.Errorf("no bundled config found - please ensure installation is complete")
 }
 
-// CopyPreset copies a preset file to the specified destination.
-func CopyPreset(srcPath, destPath string, force bool) error {
+// WriteConfig writes the config data to the destination path.
+func WriteConfig(destPath string, data string, force bool) error {
 	// Check if destination exists
 	if !force {
 		if _, err := os.Stat(destPath); err == nil {
@@ -64,14 +62,9 @@ func CopyPreset(srcPath, destPath string, force bool) error {
 		return fmt.Errorf("failed to create directory %s: %w", destDir, err)
 	}
 
-	// Copy the file
-	data, err := os.ReadFile(srcPath)
-	if err != nil {
-		return fmt.Errorf("failed to read preset file: %w", err)
-	}
-
-	if err := os.WriteFile(destPath, data, 0644); err != nil {
-		return fmt.Errorf("failed to write preset file: %w", err)
+	// Write the file
+	if err := os.WriteFile(destPath, []byte(data), 0644); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
 	return nil
