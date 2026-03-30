@@ -14,13 +14,13 @@ OpenCode configuration presets are now distributed via separate bundle repositor
 
 ## V2 Bundle Contract
 
-The V2 bundle manifest is a published contract between configuration bundles and the CLI:
+This repository **owns** the V2 bundle contract. The contract defines what a valid configuration bundle must include to work with the CLI.
 
 - **Schema-Validated**: The CLI validates bundles against the manifest schema before accepting them
 - **Forward-Compatible**: The `manifest_version` field ensures old CLIs can reject new bundle formats
-- **Documented**: Full contract specification in [`docs/opencode-helper-cli.md`](docs/opencode-helper-cli.md#bundle-manifest-reference)
+- **Documented**: Full contract specification in [`docs/bundle-contract.md`](docs/bundle-contract.md)
 
-Any bundle that includes a valid `opencode-bundle.manifest.json` at its root is a valid OpenCode configuration bundle.
+Any bundle that includes a valid `opencode-bundle.manifest.json` at its root and complies with the contract is a valid OpenCode configuration bundle.
 
 ## Quick Start
 
