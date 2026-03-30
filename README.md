@@ -1,22 +1,35 @@
-# OpenCode AI Agents — Planning-First Multi-Tier Configuration
-![GitHub Release](https://img.shields.io/github/v/release/sven1103-agent/opencode-agents)
-![Release Date](https://img.shields.io/badge/release-2026.03.27-blue)
+# OpenCode Helper CLI
 
 **V2 Baseline Release** - 2026.03.27
 
-Drop-in OpenCode agent configs that route work through schema-validated JSON handoff artifacts before planning, execution, and review. The goal is fewer ambiguous changes, less rework, and tighter safety boundaries with a small, explicit contract between agents.
+This repository contains the OpenCode Helper CLI - a tool for managing OpenCode configuration bundles and schema-validated multi-agent workflows.
 
-This repository contains a planning-first, multi-tier agent configuration for [OpenCode AI](https://opencode.ai), plus an OpenAI-model variant in `opencode.openai.json`. It defines specialized agents across four functional tiers — routing/orchestration, planning, execution, and validation — designed to minimize cost while preserving quality at every decision point.
+The helper CLI does not bundle any OpenCode configurations itself. Instead, it manages configuration bundles from external sources (like [qbicsoftware/opencode-config-bundle](https://github.com/qbicsoftware/opencode-config-bundle)) that comply with the V2 bundle contract.
+
+## Configuration Bundles
+
+OpenCode configuration presets are now distributed via separate bundle repositories that comply with the V2 bundle manifest contract. Available bundles:
+
+- [qbicsoftware/opencode-config-bundle](https://github.com/qbicsoftware/opencode-config-bundle) - Official configuration bundle with multiple presets
 
 ## Quick Start
 
-Install, use immediately in this terminal, check version, and bootstrap a project:
+Install the helper CLI:
 
 ```sh
 curl -fsSL https://github.com/sven1103-agent/opencode-agents/releases/latest/download/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
 opencode-helper version
-opencode-helper init --project-root .
+```
+
+Register a config bundle and apply a preset:
+
+```sh
+# Register the official config bundle
+opencode-helper source add qbicsoftware/opencode-config-bundle --name qbic
+
+# Apply a preset to your project
+opencode-helper bundle apply qbic --preset mixed --project-root .
 ```
 
 ## Upgrading to V2 (Config Source Management)
