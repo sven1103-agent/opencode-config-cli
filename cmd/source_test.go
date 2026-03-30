@@ -64,7 +64,9 @@ func TestSourceAddCommand(t *testing.T) {
 	// Clear any existing sources for clean test
 	registry, _ := source.LoadRegistry()
 	registry.Sources = []source.Source{}
-	source.SaveRegistry(registry)
+	if err := source.SaveRegistry(registry); err != nil {
+		t.Fatalf("failed to save registry: %v", err)
+	}
 
 	// Create a temporary directory for testing
 	tempDir := setupTestBundle(t)
@@ -120,7 +122,9 @@ func TestSourceRemoveCommand(t *testing.T) {
 	// Clear any existing sources for clean test
 	registry, _ := source.LoadRegistry()
 	registry.Sources = []source.Source{}
-	source.SaveRegistry(registry)
+	if err := source.SaveRegistry(registry); err != nil {
+		t.Fatalf("failed to save registry: %v", err)
+	}
 
 	// First add a source to remove
 	tempDir := setupTestBundle(t)
