@@ -1,0 +1,105 @@
+# .goreleaser.yaml
+# GoReleaser configuration for opencode-helper
+# https://goreleaser.com/introduction
+
+project_name: opencode-helper
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: opencode-helper
+    binary: opencode-helper
+    main: ./main.go
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X github.com/sven1103-agent/opencode-helper/internal/version.Version={{.Version}}
+
+archives:
+  - id: default
+    builds:
+      - opencode-helper
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - opencode*.json
+      - README.md
+      - LICENSE
+
+  - id: bundles
+    builds:
+      - opencode-helper
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - opencode*.json
+
+changelog:
+  sort: desc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+release:
+  github:
+    owner: sven1103
+    name: opencode-agents
+  draft: true
+  prerelease: auto
+  name_template: "{{.Tag}}"
+
+brews:
+  - name: opencode-helper
+    tap:
+      owner: sven1103
+      name: homebrew-opencode-helper
+    description: OpenCode agent configuration helper CLI
+    homepage: https://github.com/sven1103/opencode-agents
+    license: AGPL-3.0
+    skip_upload: auto
+    dependencies:
+      - name: gh
+    test: |
+      system "#{bin}/opencode-helper --version"
+    install: |
+      bin.install "opencode-helper"
+
+checksum:
+  name_template: "{{.ProjectName}}-{{.Version}}-checksums.txt"
+  algorithm: sha256
+
+sboms:
+  - id: sbom-checksum
+    artifacts: checksum
+    ids:
+      - opencode-helper
+  - id: sbom-archive
+    artifacts: archive
+    ids:
+      - opencode-helper
+
+snapshot:
+  name_template: "{{.Tag}}-next"
+
+announce:
+  twitter:
+    enabled: false
