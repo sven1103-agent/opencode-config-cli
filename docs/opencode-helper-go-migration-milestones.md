@@ -21,7 +21,7 @@ The goal is to migrate from bash to Go for better JSON handling, testability, an
 | Status | Count | Legend |
 |--------|-------|--------|
 | 🔄 In Progress | 1 | Currently being implemented |
-| ⏳ Open | 10 | Not yet started |
+| ⏳ Open | 11 | Not yet started |
 
 ---
 
@@ -40,8 +40,8 @@ Primary stories:
 - `US-041` - Add GitHub Actions CI
 
 Implementation:
-- `US-040`: ✅ Done (merged PR #83)
-- `US-041`: 🔄 In Progress (PR #84)
+- `US-040`: 🔄 In Progress (PR #83)
+- `US-041`: ⏳ Open
 
 Why first:
 - Foundation must be solid before implementing commands
@@ -67,12 +67,11 @@ Goal:
 Primary stories:
 - `US-042` - Implement init command
 - `US-043` - Implement preset list and preset use commands
-- `US-044` - Implement schema install and validate commands
 
 Implementation:
 - `US-042`: ⏳ Open
 - `US-043`: ⏳ Open
-- `US-044`: ⏳ Open
+- `US-044`: ❌ Out of Scope (bundle maintainer concern, not CLI)
 
 Why next:
 - These are the commands users need most
@@ -83,8 +82,9 @@ Exit criteria:
 - `opencode-helper preset list` shows bundled presets with descriptions
 - `opencode-helper preset use <name>` applies a preset
 - `opencode-helper schema install` installs schemas to .opencode/
-- `opencode-helper schema validate` checks installed schemas
 - All commands support --dry-run, --force flags
+
+Note: Schema validation is out of scope - it's a bundle maintainer responsibility.
 
 ---
 
@@ -158,10 +158,10 @@ Foundation first:
 - `US-040` -> `US-041`
 
 MVP commands depend on foundation:
-- `US-041` -> `US-042`, `US-043`, `US-044`
+- `US-041` -> `US-042`, `US-043`
 
 Extended commands depend on MVP:
-- `US-042`, `US-043`, `US-044` -> `US-045` -> `US-046` -> `US-047`
+- `US-042`, `US-043` -> `US-045` -> `US-046` -> `US-047`
 
 Polish depends on extended:
 - `US-047` -> `US-048`, `US-049` -> `US-050` -> `US-051`
@@ -172,11 +172,11 @@ Polish depends on extended:
 
 | # | Story | Status | Description |
 |---|-------|--------|-------------|
- | 1 | `US-040` | ✅ Done | Set up Go project structure (PR #83) |
- | 2 | `US-041` | 🔄 In Progress | Add GitHub Actions CI (PR #84) |
+| 1 | `US-040` | 🔄 In Progress | Set up Go project structure (PR #83) |
+| 2 | `US-041` | ⏳ Open | Add GitHub Actions CI |
 | 3 | `US-042` | ⏳ Open | Implement init command |
 | 4 | `US-043` | ⏳ Open | Implement preset list/use |
-| 5 | `US-044` | ⏳ Open | Implement schema install/validate |
+| 5 | `US-044` | ❌ Out of Scope | Schema validation (bundle maintainer) |
 | 6 | `US-045` | ⏳ Open | Implement source commands |
 | 7 | `US-046` | ⏳ Open | Implement bundle commands |
 | 8 | `US-047` | ⏳ Open | Implement update command |

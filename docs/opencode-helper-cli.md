@@ -1230,7 +1230,7 @@ Priority:
 - P0
 
 Status:
-- Open
+- Closed - Out of Scope (2026-03-30)
 
 Type:
 - User-facing
@@ -1239,11 +1239,10 @@ Related stories:
 - [US-040](#us-040)
 
 Story:
-- As a user, I want to install and validate schemas in my project.
+- ~~As a user, I want to install and validate schemas in my project.~~
 
-Acceptance criteria:
-- `opencode-helper schema install [--project-root PATH] [--dry-run]` installs schemas
-- `opencode-helper schema validate [--project-root PATH]` validates installed schemas
+Note:
+- Schema validation is a bundle maintainer concern, not a CLI concern. The CLI should remain agnostic to bundle implementation details. Schema validation was removed from scope.
 
 ---
 
