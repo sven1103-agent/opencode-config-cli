@@ -1,0 +1,51 @@
+name: Release Go Binary
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semantic version (e.g., v0.1.0-alpha.1)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-go-binary-${{ github.event.inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache: true
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: '~> v2'
+          args: release --clean --skip=publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ github.event.inputs.version }}
+
+      - name: Upload Release Asset
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.inputs.version }}" \
+            dist/opencode-helper_*_darwin_arm64.tar.gz \
+            dist/opencode-helper_*_darwin_amd64.tar.gz \
+            dist/opencode-helper_*_linux_arm64.tar.gz \
+            dist/opencode-helper_*_linux_amd64.tar.gz \
+            dist/opencode-helper_*_checksums.txt \
+            --clobber
