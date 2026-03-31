@@ -1,10 +1,10 @@
 # V2 Bundle Contract
 
-This document defines the contract that configuration bundles must comply with to work with the opencode-helper CLI.
+This document defines the contract that configuration bundles must comply with to work with the `oc` CLI.
 
 ## Ownership
 
-The bundle contract is **owned by the opencode-agents repository** where the CLI lives. All schema definitions, validation rules, and contract changes are managed here.
+The bundle contract is **owned by the opencode-config-cli repository** where the CLI lives. All schema definitions, validation rules, and contract changes are managed here.
 
 Configuration bundles (like [qbicsoftware/opencode-config-bundle](https://github.com/qbicsoftware/opencode-config-bundle)) are **consumers** of this contract.
 

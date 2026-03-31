@@ -2,7 +2,7 @@
 
 set -eu
 
-RELEASE_REPO_DEFAULT="sven1103-agent/opencode-agents"
+RELEASE_REPO_DEFAULT="sven1103-agent/opencode-config-cli"
 
 RELEASE_REPO=${OPENCODE_HELPER_RELEASE_REPO:-$RELEASE_REPO_DEFAULT}
 API_BASE=${OPENCODE_HELPER_API_BASE:-https://api.github.com/repos/$RELEASE_REPO/releases}
@@ -27,7 +27,7 @@ Options:
 
 Environment:
   OPENCODE_HELPER_VERSION         Pin the release tag (overrides latest)
-  OPENCODE_HELPER_RELEASE_REPO    Override release repo (default: sven1103-agent/opencode-agents)
+  OPENCODE_HELPER_RELEASE_REPO    Override release repo (default: sven1103-agent/opencode-config-cli)
 EOF
 }
 

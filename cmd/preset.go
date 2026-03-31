@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"github.com/sven1103-agent/opencode-helper/internal/preset"
+	"github.com/sven1103-agent/opencode-config-cli/internal/preset"
 )
 
 var (

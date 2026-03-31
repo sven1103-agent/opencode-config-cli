@@ -6,7 +6,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-	"github.com/sven1103-agent/opencode-helper/internal/source"
+	"github.com/sven1103-agent/opencode-config-cli/internal/source"
 )
 
 var (

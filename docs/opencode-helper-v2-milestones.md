@@ -68,7 +68,7 @@ This is the initial V2 baseline release with full config-source management suppo
 opencode-helper self-update
 
 # Or fresh install
-curl -fsSL https://github.com/sven1103-agent/opencode-agents/releases/latest/download/install.sh | sh
+curl -fsSL https://github.com/sven1103-agent/opencode-config-cli/releases/latest/download/install.sh | sh
 
 # For existing V1 projects, migration is optional
 opencode-helper migrate legacy-config --project-root ./myproject

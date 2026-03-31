@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"github.com/sven1103-agent/opencode-helper/internal/bundle"
-	"github.com/sven1103-agent/opencode-helper/internal/source"
+	"github.com/sven1103-agent/opencode-config-cli/internal/bundle"
+	"github.com/sven1103-agent/opencode-config-cli/internal/source"
 )
 
 var (

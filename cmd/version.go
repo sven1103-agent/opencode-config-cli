@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/sven1103-agent/opencode-helper/internal/version"
+	"github.com/sven1103-agent/opencode-config-cli/internal/version"
 )
 
 var versionCmd = &cobra.Command{

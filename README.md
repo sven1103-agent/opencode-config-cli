@@ -1,10 +1,10 @@
-# OpenCode Helper CLI
+# OpenCode Config CLI
 
 **V2 Baseline Release** - 2026.03.27
 
-This repository contains the OpenCode Helper CLI - a tool for managing OpenCode configuration bundles and schema-validated multi-agent workflows.
+This repository contains the OpenCode Config CLI (`oc`) - a tool for managing OpenCode configuration bundles and schema-validated multi-agent workflows.
 
-The helper CLI does not bundle any OpenCode configurations itself. Instead, it manages configuration bundles from external sources (like [qbicsoftware/opencode-config-bundle](https://github.com/qbicsoftware/opencode-config-bundle)) that comply with the V2 bundle contract.
+The config CLI does not bundle any OpenCode configurations itself. Instead, it manages configuration bundles from external sources (like [qbicsoftware/opencode-config-bundle](https://github.com/qbicsoftware/opencode-config-bundle)) that comply with the V2 bundle contract.
 
 ## Configuration Bundles
 
@@ -24,12 +24,12 @@ Any bundle that includes a valid `opencode-bundle.manifest.json` at its root and
 
 ## Quick Start
 
-Install the helper CLI:
+Install the config CLI:
 
 ```sh
-curl -fsSL https://github.com/sven1103-agent/opencode-agents/releases/latest/download/install.sh | sh
+curl -fsSL https://github.com/sven1103-agent/opencode-config-cli/releases/latest/download/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
-opencode-helper version
+oc version
 ```
 
 ### Installing the Go CLI (Alpha)
@@ -40,8 +40,8 @@ For smoke testing the Go implementation, use one of:
 ```sh
 # Replace VERSION with the release tag (e.g., v0.1.0-alpha.1)
 VERSION=v0.1.0-alpha.1
-curl -L "https://github.com/sven1103-agent/opencode-agents/releases/download/${VERSION}/opencode-helper_${VERSION#v}_darwin_arm64.tar.gz" | tar xz
-mv opencode-helper ~/.local/bin/
+curl -L "https://github.com/sven1103-agent/opencode-config-cli/releases/download/${VERSION}/oc_${VERSION#v}_darwin_arm64.tar.gz" | tar xz
+mv oc ~/.local/bin/
 
 # Verify
 oc version
@@ -49,13 +49,13 @@ oc version
 
 **Build from source:**
 ```sh
-go install github.com/sven1103-agent/opencode-helper@latest
+go install github.com/sven1103-agent/opencode-config-cli@latest
 
 # Verify
 oc version
 ```
 
-> **Note:** The Go CLI binary is named `oc`, not `opencode-helper`. Run `oc --help` to see available commands.
+> **Note:** The CLI binary is `oc`.
 
 Register a config bundle and apply a preset:
 
@@ -92,7 +92,7 @@ The V2 CLI introduces **config source management** — a new way to manage your 
 oc update
 
 # Or install fresh
-curl -fsSL https://github.com/sven1103-agent/opencode-agents/releases/latest/download/install.sh | sh
+curl -fsSL https://github.com/sven1103-agent/opencode-config-cli/releases/latest/download/install.sh | sh
 ```
 
 **2. Verify upgrade:**
@@ -120,7 +120,7 @@ oc migrate legacy-config --project-root ./myproject
 
 ```sh
 # Register a GitHub release as config source
-oc source add sven1103-agent/opencode-agents --name my-config
+oc source add sven1103-agent/opencode-config-bundle --name my-config
 
 # List registered sources
 oc source list
@@ -153,18 +153,18 @@ oc bundle update <source-id>
 
 | V1 Command | V2 Equivalent |
 |------------|---------------|
-| `opencode-helper init --preset <name>` | `opencode-helper source add <repo>` + `bundle apply` |
-| `opencode-helper preset list` | `opencode-helper preset list --sources` |
-| (no equivalent) | `opencode-helper bundle status` |
-| (no equivalent) | `opencode-helper bundle update` |
-| (automatic on upgrade) | `opencode-helper migrate legacy-config` |
+| `oc init --preset <name>` | `oc source add <repo>` + `bundle apply` |
+| `oc preset list` | `oc preset list --sources` |
+| (no equivalent) | `oc bundle status` |
+| (no equivalent) | `oc bundle update` |
+| (automatic on upgrade) | `oc migrate legacy-config` |
 
 ## Install Options
 
 ### Custom install path (`--bin-dir`)
 
 ```sh
-curl -fsSL https://github.com/sven1103-agent/opencode-agents/releases/latest/download/install.sh | sh -s -- --bin-dir "$HOME/bin"
+curl -fsSL https://github.com/sven1103-agent/opencode-config-cli/releases/latest/download/install.sh | sh -s -- --bin-dir "$HOME/bin"
 export PATH="$HOME/bin:$PATH"
 oc version
 ```
@@ -172,14 +172,14 @@ oc version
 ### Version pinning (`--version` and `OPENCODE_HELPER_VERSION`)
 
 ```sh
-curl -fsSL https://github.com/sven1103-agent/opencode-agents/releases/latest/download/install.sh | sh -s -- --version v0.1.0
+curl -fsSL https://github.com/sven1103-agent/opencode-config-cli/releases/latest/download/install.sh | sh -s -- --version v0.1.0
 ```
 
 ```sh
-OPENCODE_HELPER_VERSION=v0.1.0 sh -c 'curl -fsSL https://github.com/sven1103-agent/opencode-agents/releases/latest/download/install.sh | sh'
+OPENCODE_HELPER_VERSION=v0.1.0 sh -c 'curl -fsSL https://github.com/sven1103-agent/opencode-config-cli/releases/latest/download/install.sh | sh'
 ```
 
-## Using the Installed Helper
+## Using the Installed CLI
 
 ```sh
 oc preset list

@@ -1,4 +1,4 @@
-module github.com/sven1103-agent/opencode-helper
+module github.com/sven1103-agent/opencode-config-cli
 
 go 1.21
 

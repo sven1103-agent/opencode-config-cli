@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sven1103-agent/opencode-helper/cmd"
+	"github.com/sven1103-agent/opencode-config-cli/cmd"
 )
 
 func main() {

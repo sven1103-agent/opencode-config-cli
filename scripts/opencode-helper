@@ -3280,7 +3280,7 @@ cmd_release_use() {
 
 # Self-update support functions
 
-RELEASE_REPO_DEFAULT="sven1103-agent/opencode-agents"
+RELEASE_REPO_DEFAULT="sven1103-agent/opencode-config-cli"
 
 selfupdate_detect_install_home() {
   # First try INSTALL_HOME env var set by launcher
@@ -3740,7 +3740,7 @@ cmd_update() {
     log "Current version: $HELPER_VERSION"
     log ""
     log "Note: This appears to be a development or direct installation."
-    log "To check for updates, visit: https://github.com/sven1103-agent/opencode-helper/releases"
+    log "To check for updates, visit: https://github.com/sven1103-agent/opencode-config-cli/releases"
     return "$EXIT_OK"
   fi
 
@@ -3758,7 +3758,7 @@ cmd_update() {
   latest_tag=$(selfupdate_fetch_latest_tag "$workdir") || {
     log "Current version: $current_tag"
     log ""
-    err "Failed to check for updates. Please visit: https://github.com/sven1103-agent/opencode-helper/releases"
+    err "Failed to check for updates. Please visit: https://github.com/sven1103-agent/opencode-config-cli/releases"
     return "$EXIT_ERR"
   }
 
@@ -3785,7 +3785,7 @@ cmd_update() {
     log "    brew upgrade opencode-helper"
     log ""
     log "  Or reinstall using the install script:"
-    log "    curl -fsSL https://github.com/sven1103-agent/opencode-agents/releases/latest/download/install.sh | sh"
+    log "    curl -fsSL https://github.com/sven1103-agent/opencode-config-cli/releases/latest/download/install.sh | sh"
     log ""
     log "  Or use self-update (if installed via bundle):"
     log "    opencode-helper self-update"

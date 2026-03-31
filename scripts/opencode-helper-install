@@ -5,7 +5,7 @@ set -eu
 BEGIN_SENTINEL="# opencode-helper: BEGIN managed PATH"
 END_SENTINEL="# opencode-helper: END managed PATH"
 
-RELEASE_REPO_DEFAULT="sven1103-agent/opencode-agents"
+RELEASE_REPO_DEFAULT="sven1103-agent/opencode-config-cli"
 INSTALL_WORK_DIR=
 FETCHED_HELPER_PATH=
 FETCHED_BUNDLE_PATH=

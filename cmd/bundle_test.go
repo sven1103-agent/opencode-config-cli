@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/sven1103-agent/opencode-helper/internal/bundle"
+	"github.com/sven1103-agent/opencode-config-cli/internal/bundle"
 )
 
 // setupTestProject creates a temporary project directory
