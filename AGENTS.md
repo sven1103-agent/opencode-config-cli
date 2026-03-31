@@ -2,14 +2,16 @@
 
 ## Scope
 
-This repository contains OpenCode agent configuration assets and supporting setup materials.
+This repository contains the OpenCode Helper CLI - a tool for managing OpenCode configuration bundles.
 
 Primary repo contents:
-- `opencode.openai.json` and `opencode.mixed.json` are the main OpenCode config presets
-- `.opencode/schemas/` contains the vendored inter-agent handoff and result schemas used by this repo's workflow
-- `scripts/opencode-helper` is the iteration-1 helper CLI for bootstrapping `opencode.json` + installing/validating local schemas
-- `docs/opencode-helper-cli.md` is the traceable product document for the planned helper CLI
-- `README.md` explains the multi-agent configuration approach and how the repo is intended to be used
+- `cmd/` contains the Go CLI implementation
+- `internal/` contains internal packages
+- `scripts/opencode-helper` is the shell-based helper for bootstrapping
+- `docs/opencode-helper-cli.md` is the traceable product document for the helper CLI
+- `README.md` explains the helper CLI and how to use configuration bundles
+
+Note: OpenCode configuration presets have been moved to [qbicsoftware/opencode-config-bundle](https://github.com/qbicsoftware/opencode-config-bundle)
 
 ## Working Expectations
 
@@ -50,6 +52,6 @@ Before doing any substantive work for a new user story or implementation task in
 
 ## Quick Orientation
 
-- If the task is about agent behavior or configuration presets, inspect `README.md`, `opencode.openai.json`, and `opencode.mixed.json`
-- If the task is about local schema installation or validation, inspect `scripts/opencode-helper`
+- If the task is about the helper CLI, inspect `README.md` and `cmd/`
+- If the task is about configuration bundles, see [qbicsoftware/opencode-config-bundle](https://github.com/qbicsoftware/opencode-config-bundle)
 - If the task is about future helper CLI behavior, update `docs/opencode-helper-cli.md` first so product decisions remain traceable

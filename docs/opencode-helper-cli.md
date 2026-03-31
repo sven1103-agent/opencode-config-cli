@@ -11,6 +11,7 @@
   - [Non-Functional Requirements](#non-functional-requirements)
 - [First Features](#first-features)
 - [V2 Milestone Plan](opencode-helper-v2-milestones.md)
+- [Go Migration Milestone Plan](opencode-helper-go-migration-milestones.md)
 - [Traceability Matrix](#traceability-matrix)
 - [User Story Backlog Placeholder](#user-story-backlog-placeholder)
 - [Open Questions for Post-V1](#open-questions-for-post-v1)
@@ -1112,6 +1113,306 @@ Satisfies:
 | [US-037](#us-037) | User Story | [FEAT-016](#feat-016), [REQ-F-030](#req-f-030), [REQ-F-024](#req-f-024) |
 | [US-038](#us-038) | User Story | [FEAT-017](#feat-017), [REQ-F-031](#req-f-031) |
 | [US-039](#us-039) | User Story | [FEAT-018](#feat-018), [REQ-F-032](#req-f-032) |
+| [US-040](#us-040) | User Story | (Go Migration) |
+| [US-041](#us-041) | User Story | (Go Migration) |
+| [US-042](#us-042) | User Story | (Go Migration) |
+| [US-043](#us-043) | User Story | (Go Migration) |
+| [US-044](#us-044) | User Story | (Go Migration) |
+| [US-045](#us-045) | User Story | (Go Migration) |
+| [US-046](#us-046) | User Story | (Go Migration) |
+| [US-047](#us-047) | User Story | (Go Migration) |
+| [US-048](#us-048) | User Story | (Go Migration) |
+| [US-049](#us-049) | User Story | (Go Migration) |
+| [US-050](#us-050) | User Story | (Go Migration) |
+| [US-051](#us-051) | User Story | (Go Migration) |
+
+---
+
+### <a id="us-040"></a>US-040 - Set up Go project structure
+
+Priority:
+- P0
+
+Status:
+- Open
+
+Type:
+- Maintainer-facing
+
+Story:
+- As a maintainer, I want the CLI implemented in Go so that I can benefit from better JSON handling, testability, and a more robust CLI experience.
+
+Acceptance criteria:
+- Go module created with proper module path
+- Cobra CLI framework set up with root command
+- help and version subcommands work
+- Project structure follows feature-based organization
+- Dependencies: spf13/cobra, stretchr/testify, gojsonschema
+
+---
+
+### <a id="us-041"></a>US-041 - Add GitHub Actions CI
+
+Priority:
+- P1
+
+Status:
+- Open
+
+Type:
+- Maintainer-facing
+
+Related stories:
+- [US-040](#us-040)
+
+Story:
+- As a maintainer, I want automated CI so that I can catch issues early.
+
+Acceptance criteria:
+- GitHub Actions workflow runs on push/PR
+- Runs go test ./...
+- Runs go build ./...
+- Runs golangci-lint
+
+---
+
+### <a id="us-042"></a>US-042 - Implement init command
+
+Priority:
+- P0
+
+Status:
+- Open
+
+Type:
+- User-facing
+
+Related stories:
+- [US-040](#us-040)
+
+Story:
+- As a user, I want to initialize a project with a preset and schemas in one step.
+
+Acceptance criteria:
+- `opencode-helper init [--project-root PATH] [--preset NAME] [--output PATH] [--force] [--dry-run]` works
+- Copies preset file to project
+- Installs schemas to .opencode/
+- Writes helper manifest
+
+---
+
+### <a id="us-043"></a>US-043 - Implement preset list and preset use commands
+
+Priority:
+- P0
+
+Status:
+- Open
+
+Type:
+- User-facing
+
+Related stories:
+- [US-040](#us-040)
+
+Story:
+- As a user, I want to list and apply bundled presets.
+
+Acceptance criteria:
+- `opencode-helper preset list` lists all bundled presets with descriptions
+- `opencode-helper preset use <name> [--project-root PATH] [--output PATH] [--force] [--dry-run]` applies a preset
+
+---
+
+### <a id="us-044"></a>US-044 - Implement schema install and validate commands
+
+Priority:
+- P0
+
+Status:
+- Closed - Out of Scope (2026-03-30)
+
+Type:
+- User-facing
+
+Related stories:
+- [US-040](#us-040)
+
+Story:
+- ~~As a user, I want to install and validate schemas in my project.~~
+
+Note:
+- Schema validation is a bundle maintainer concern, not a CLI concern. The CLI should remain agnostic to bundle implementation details. Schema validation was removed from scope.
+
+---
+
+### <a id="us-045"></a>US-045 - Implement source commands (add, list, remove)
+
+Priority:
+- P2
+
+Status:
+- Open
+
+Type:
+- User-facing
+
+Related stories:
+- [US-040](#us-040)
+
+Story:
+- As a user, I want to manage config sources.
+
+Acceptance criteria:
+- `opencode-helper source add <location> [--name NAME]` registers a source
+- `opencode-helper source list` lists registered sources
+- `opencode-helper source remove <id>` removes a source
+- Stores registry in XDG compliance location (~/.config/opencode-helper/)
+
+---
+
+### <a id="us-046"></a>US-046 - Implement bundle commands (apply, status, update)
+
+Priority:
+- P2
+
+Status:
+- Open
+
+Type:
+- User-facing
+
+Related stories:
+- [US-040](#us-040), [US-045](#us-045)
+
+Story:
+- As a user, I want to apply bundles from registered sources and track provenance.
+
+Acceptance criteria:
+- `opencode-helper bundle apply <source-id> --preset <name> [--project-root PATH] [--force] [--dry-run]` applies a preset from a bundle
+- `opencode-helper bundle status [--project-root PATH]` shows provenance
+- `opencode-helper bundle update <source-id> [--yes]` checks for and applies updates
+
+---
+
+### <a id="us-047"></a>US-047 - Implement update command
+
+Priority:
+- P2
+
+Status:
+- Open
+
+Type:
+- User-facing
+
+Related stories:
+- [US-040](#us-040)
+
+Story:
+- As a user, I want to check if a new version is available.
+
+Acceptance criteria:
+- `opencode-helper update` checks GitHub for newer version
+- Reports current version vs latest available
+- Tells user to upgrade via package manager
+
+---
+
+### <a id="us-048"></a>US-048 - Add shell completions
+
+Priority:
+- P3
+
+Status:
+- Open
+
+Type:
+- User-facing
+
+Related stories:
+- [US-040](#us-040)
+
+Story:
+- As a user, I want shell completions for faster CLI usage.
+
+Acceptance criteria:
+- `opencode-helper completion bash` generates bash completions
+- `opencode-helper completion zsh` generates zsh completions
+- `opencode-helper completion fish` generates fish completions
+
+---
+
+### <a id="us-049"></a>US-049 - Add --interactive flag for TTY mode
+
+Priority:
+- P3
+
+Status:
+- Open
+
+Type:
+- User-facing
+
+Related stories:
+- [US-040](#us-040)
+
+Story:
+- As a user, I want interactive mode for certain commands.
+
+Acceptance criteria:
+- Commands that support interactivity have --interactive flag
+- Default is non-interactive (explicit arguments required)
+- When --interactive is passed, prompts for input via TTY
+
+---
+
+### <a id="us-050"></a>US-050 - Set up goreleaser
+
+Priority:
+- P2
+
+Status:
+- Open
+
+Type:
+- Maintainer-facing
+
+Related stories:
+- [US-040](#us-040)
+
+Story:
+- As a maintainer, I want automated releases with goreleaser.
+
+Acceptance criteria:
+- .goreleaser.yaml configured
+- Creates tar.gz archives with bundled presets
+- Generates checksums
+- Integrates with GitHub releases
+
+---
+
+### <a id="us-051"></a>US-051 - Create Homebrew tap
+
+Priority:
+- P2
+
+Status:
+- Open
+
+Type:
+- User-facing
+
+Related stories:
+- [US-050](#us-050)
+
+Story:
+- As a user, I want to install via Homebrew.
+
+Acceptance criteria:
+- Homebrew tap created/updated
+- Installation via `brew install sven1103-agent/opencode-agents/opencode-helper` works
+- Formula stays up to date with releases
 
 ---
 

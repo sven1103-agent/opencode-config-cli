@@ -173,6 +173,8 @@ Polish depends on extended:
 
 | # | Story | Status | Description |
 |---|-------|--------|-------------|
+| # | Story | Status | Description |
+|---|-------|--------|-------------|
 | 1 | `US-040` | ✅ Done | Set up Go project structure (PR #83) |
 | 2 | `US-041` | ✅ Done | Add GitHub Actions CI (PR #84) |
 | 3 | `US-042` | ✅ Done | Implement init command (PR #87) |
