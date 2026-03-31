@@ -37,18 +37,6 @@ jobs:
         uses: goreleaser/goreleaser-action@v6
         with:
           version: '~> v2'
-          args: release --clean --skip=publish
+          args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Release Assets
-        if: success()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          cd dist
-          for file in opencode-helper_*.tar.gz opencode-helper_*.zip opencode-helper_*-checksums.txt; do
-            if [ -f "$file" ]; then
-              gh release upload "${{ github.event.inputs.version }}" "$file" --clobber
-            fi
-          done
