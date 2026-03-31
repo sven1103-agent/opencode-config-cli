@@ -41,15 +41,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Release Asset
+      - name: Upload Release Assets
         if: success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "${{ github.event.inputs.version }}" \
-            dist/opencode-helper_*_darwin_arm64.tar.gz \
-            dist/opencode-helper_*_darwin_amd64.tar.gz \
-            dist/opencode-helper_*_linux_arm64.tar.gz \
-            dist/opencode-helper_*_linux_amd64.tar.gz \
-            dist/opencode-helper_*_checksums.txt \
-            --clobber
+          cd dist
+          for file in opencode-helper_*.tar.gz opencode-helper_*.zip opencode-helper_*-checksums.txt; do
+            if [ -f "$file" ]; then
+              gh release upload "${{ github.event.inputs.version }}" "$file" --clobber
+            fi
+          done
