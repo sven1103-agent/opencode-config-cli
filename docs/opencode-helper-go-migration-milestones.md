@@ -16,12 +16,13 @@ The goal is to migrate from bash to Go for better JSON handling, testability, an
 
 ## Implementation Status
 
-> **Last updated**: 2026-03-28
+> **Last updated**: 2026-03-31
 
 | Status | Count | Legend |
 |--------|-------|--------|
-| 🔄 In Progress | 1 | Currently being implemented |
-| ⏳ Open | 11 | Not yet started |
+| ✅ Done | 8 | Completed and merged |
+| ❌ Out of Scope | 1 | Not applicable to CLI |
+| ⏳ Open | 3 | Not yet started |
 
 ---
 
@@ -29,7 +30,7 @@ The goal is to migrate from bash to Go for better JSON handling, testability, an
 
 ### M1 - Foundation
 
-**Status**: ⏳ Open
+**Status**: ✅ Done
 
 Goal:
 - Set up Go project structure with cobra scaffolding
@@ -40,8 +41,8 @@ Primary stories:
 - `US-041` - Add GitHub Actions CI
 
 Implementation:
-- `US-040`: 🔄 In Progress (PR #83)
-- `US-041`: ⏳ Open
+- `US-040`: ✅ Done (PR #83)
+- `US-041`: ✅ Done (PR #84)
 
 Why first:
 - Foundation must be solid before implementing commands
@@ -59,7 +60,7 @@ Exit criteria:
 
 ### M2 - MVP Commands
 
-**Status**: ⏳ Open
+**Status**: ✅ Done
 
 Goal:
 - Implement the core commands users need day-to-day
@@ -69,8 +70,8 @@ Primary stories:
 - `US-043` - Implement preset list and preset use commands
 
 Implementation:
-- `US-042`: ⏳ Open
-- `US-043`: ⏳ Open
+- `US-042`: ✅ Done (PR #87)
+- `US-043`: ✅ Done (PR #88)
 - `US-044`: ❌ Out of Scope (bundle maintainer concern, not CLI)
 
 Why next:
@@ -90,7 +91,7 @@ Note: Schema validation is out of scope - it's a bundle maintainer responsibilit
 
 ### M3 - Extended Commands
 
-**Status**: ⏳ Open
+**Status**: ✅ Done
 
 Goal:
 - Implement config source management and bundle operations
@@ -101,9 +102,9 @@ Primary stories:
 - `US-047` - Implement update command
 
 Implementation:
-- `US-045`: ⏳ Open
-- `US-046`: ⏳ Open
-- `US-047`: ⏳ Open
+- `US-045`: ✅ Done (PR #94)
+- `US-046`: ✅ Done (PR #95)
+- `US-047`: ✅ Done (PR #93)
 
 Why here:
 - These depend on MVP commands being stable
@@ -123,7 +124,7 @@ Exit criteria:
 
 ### M4 - Polish & Distribution
 
-**Status**: ⏳ Open
+**Status**: 🔄 In Progress
 
 Goal:
 - Add polish features and prepare for distribution
@@ -137,7 +138,7 @@ Primary stories:
 Implementation:
 - `US-048`: ⏳ Open
 - `US-049`: ⏳ Open
-- `US-050`: ⏳ Open
+- `US-050`: ✅ Done (PR #90)
 - `US-051`: ⏳ Open
 
 Why last:
@@ -172,17 +173,19 @@ Polish depends on extended:
 
 | # | Story | Status | Description |
 |---|-------|--------|-------------|
-| 1 | `US-040` | 🔄 In Progress | Set up Go project structure (PR #83) |
-| 2 | `US-041` | ⏳ Open | Add GitHub Actions CI |
-| 3 | `US-042` | ⏳ Open | Implement init command |
-| 4 | `US-043` | ⏳ Open | Implement preset list/use |
+| # | Story | Status | Description |
+|---|-------|--------|-------------|
+| 1 | `US-040` | ✅ Done | Set up Go project structure (PR #83) |
+| 2 | `US-041` | ✅ Done | Add GitHub Actions CI (PR #84) |
+| 3 | `US-042` | ✅ Done | Implement init command (PR #87) |
+| 4 | `US-043` | ✅ Done | Implement preset list/use (PR #88) |
 | 5 | `US-044` | ❌ Out of Scope | Schema validation (bundle maintainer) |
-| 6 | `US-045` | ⏳ Open | Implement source commands |
-| 7 | `US-046` | ⏳ Open | Implement bundle commands |
-| 8 | `US-047` | ⏳ Open | Implement update command |
+| 6 | `US-045` | ✅ Done | Implement source commands (PR #94) |
+| 7 | `US-046` | ✅ Done | Implement bundle commands (PR #95) |
+| 8 | `US-047` | ✅ Done | Implement update command (PR #93) |
 | 9 | `US-048` | ⏳ Open | Add shell completions |
 | 10 | `US-049` | ⏳ Open | Add --interactive flag |
-| 11 | `US-050` | ⏳ Open | Set up goreleaser |
+| 11 | `US-050` | ✅ Done | Set up goreleaser (PR #90) |
 | 12 | `US-051` | ⏳ Open | Create Homebrew tap |
 
 ---
