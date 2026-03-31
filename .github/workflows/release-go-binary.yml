@@ -28,6 +28,11 @@ jobs:
           go-version: '1.21'
           cache: true
 
+      - name: Create git tag
+        run: |
+          git tag -f ${{ github.event.inputs.version }}
+          git push origin ${{ github.event.inputs.version }} --force
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
@@ -35,7 +40,6 @@ jobs:
           args: release --clean --skip=publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ github.event.inputs.version }}
 
       - name: Upload Release Asset
         if: success()
