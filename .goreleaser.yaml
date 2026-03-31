@@ -30,15 +30,6 @@ builds:
       - -s -w
       - -X github.com/sven1103-agent/opencode-helper/internal/version.Version={{.Version}}
 
-archives:
-  - id: default
-    builds:
-      - opencode-helper
-    format: tar.gz
-    format_overrides:
-      - goos: windows
-        format: zip
-
 changelog:
   sort: desc
   filters:
@@ -58,16 +49,6 @@ release:
 checksum:
   name_template: "{{.ProjectName}}-{{.Version}}-checksums.txt"
   algorithm: sha256
-
-sboms:
-  - id: sbom-checksum
-    artifacts: checksum
-    ids:
-      - opencode-helper
-  - id: sbom-archive
-    artifacts: archive
-    ids:
-      - opencode-helper
 
 announce:
   twitter:
