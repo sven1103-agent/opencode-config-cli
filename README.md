@@ -32,14 +32,39 @@ export PATH="$HOME/.local/bin:$PATH"
 opencode-helper version
 ```
 
+### Installing the Go CLI (Alpha)
+
+For smoke testing the Go implementation, use one of:
+
+**Download from GitHub releases:**
+```sh
+# Replace VERSION with the release tag (e.g., v0.1.0-alpha.1)
+VERSION=v0.1.0-alpha.1
+curl -L "https://github.com/sven1103-agent/opencode-agents/releases/download/${VERSION}/opencode-helper_${VERSION#v}_darwin_arm64.tar.gz" | tar xz
+mv opencode-helper ~/.local/bin/
+
+# Verify
+oc version
+```
+
+**Build from source:**
+```sh
+go install github.com/sven1103-agent/opencode-helper@latest
+
+# Verify
+oc version
+```
+
+> **Note:** The Go CLI binary is named `oc`, not `opencode-helper`. Run `oc --help` to see available commands.
+
 Register a config bundle and apply a preset:
 
 ```sh
 # Register the official config bundle
-opencode-helper source add qbicsoftware/opencode-config-bundle --name qbic
+oc source add qbicsoftware/opencode-config-bundle --name qbic
 
 # Apply a preset to your project
-opencode-helper bundle apply qbic --preset mixed --project-root .
+oc bundle apply qbic --preset mixed --project-root .
 ```
 
 ## Upgrading to V2 (Config Source Management)
@@ -64,7 +89,7 @@ The V2 CLI introduces **config source management** — a new way to manage your 
 
 ```sh
 # Upgrade to latest V2+ release
-opencode-helper self-update
+oc update
 
 # Or install fresh
 curl -fsSL https://github.com/sven1103-agent/opencode-agents/releases/latest/download/install.sh | sh
@@ -73,7 +98,7 @@ curl -fsSL https://github.com/sven1103-agent/opencode-agents/releases/latest/dow
 **2. Verify upgrade:**
 
 ```sh
-opencode-helper version
+oc version
 # Should show V2+ (2.0.0 or higher)
 ```
 
@@ -85,29 +110,29 @@ To migrate explicitly:
 
 ```sh
 # Check current status
-opencode-helper bundle status --project-root ./myproject
+oc bundle status --project-root ./myproject
 
 # Migrate to V2 (requires confirmation)
-opencode-helper migrate legacy-config --project-root ./myproject
+oc migrate legacy-config --project-root ./myproject
 ```
 
 **4. Register a config source (optional):**
 
 ```sh
 # Register a GitHub release as config source
-opencode-helper source add sven1103-agent/opencode-agents --name my-config
+oc source add sven1103-agent/opencode-agents --name my-config
 
 # List registered sources
-opencode-helper source list
+oc source list
 
 # Apply a preset from the source
-opencode-helper bundle apply <source-id> --preset openai --project-root ./myproject
+oc bundle apply <source-id> --preset openai --project-root ./myproject
 
 # Check bundle status
-opencode-helper bundle status --project-root ./myproject
+oc bundle status --project-root ./myproject
 
 # Check for updates
-opencode-helper bundle update <source-id>
+oc bundle update <source-id>
 ```
 
 ### V2 Project Layout
@@ -141,7 +166,7 @@ opencode-helper bundle update <source-id>
 ```sh
 curl -fsSL https://github.com/sven1103-agent/opencode-agents/releases/latest/download/install.sh | sh -s -- --bin-dir "$HOME/bin"
 export PATH="$HOME/bin:$PATH"
-opencode-helper version
+oc version
 ```
 
 ### Version pinning (`--version` and `OPENCODE_HELPER_VERSION`)
@@ -157,8 +182,8 @@ OPENCODE_HELPER_VERSION=v0.1.0 sh -c 'curl -fsSL https://github.com/sven1103-age
 ## Using the Installed Helper
 
 ```sh
-opencode-helper preset list
-opencode-helper validate --project-root . --output ./opencode.json
+oc preset list
+oc init --help
 ```
 
 ---
