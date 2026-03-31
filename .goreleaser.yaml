@@ -38,20 +38,6 @@ archives:
     format_overrides:
       - goos: windows
         format: zip
-    files:
-      - opencode*.json
-      - README.md
-      - LICENSE
-
-  - id: bundles
-    builds:
-      - opencode-helper
-    format: tar.gz
-    format_overrides:
-      - goos: windows
-        format: zip
-    files:
-      - opencode*.json
 
 changelog:
   sort: desc
@@ -82,9 +68,6 @@ sboms:
     artifacts: archive
     ids:
       - opencode-helper
-
-snapshot:
-  name_template: "{{.Tag}}-next"
 
 announce:
   twitter:
