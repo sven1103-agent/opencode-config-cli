@@ -1,4 +1,4 @@
-# V2 Bundle Contract
+# Bundle Contract
 
 This document defines the contract that configuration bundles must comply with to work with the `oc` CLI.
 
@@ -25,6 +25,11 @@ Configuration bundles (like [qbicsoftware/opencode-config-bundle](https://github
 
 ### Schema (JSON Schema Draft 2020-12)
 
+The schema is **embedded in the CLI binary** for offline validation.
+
+The single source of truth is `internal/bundle/1.0.0.schema.json` in the repository.
+This file is embedded into the `oc` CLI binary at build time.
+
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -32,9 +37,9 @@ Configuration bundles (like [qbicsoftware/opencode-config-bundle](https://github
   "required": ["manifest_version", "bundle_name", "bundle_version", "presets"],
   "properties": {
     "manifest_version": {
-      "type": "integer",
-      "const": 1,
-      "description": "Contract version. Currently must be 1."
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Semantic version of the bundle manifest schema (e.g., 1.0.0). CLI supports this version and N-1."
     },
     "bundle_name": {
       "type": "string",
@@ -90,7 +95,7 @@ Configuration bundles (like [qbicsoftware/opencode-config-bundle](https://github
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `manifest_version` | integer | Yes | Currently must be `1`. CLI rejects unsupported versions. |
+| `manifest_version` | string (semver) | Yes | Must be `1.0.0` or compatible. CLI supports this version and N-1. |
 | `bundle_name` | string | Yes | Stable identifier for the bundle |
 | `bundle_version` | string | Yes | Release tag or version string |
 | `presets` | array | Yes | Array of preset descriptor objects |
@@ -120,7 +125,7 @@ The CLI rejects a bundle when:
 
 - `opencode-bundle.manifest.json` is missing from bundle root
 - Manifest is not valid JSON
-- `manifest_version` is unsupported (not `1`)
+- `manifest_version` is unsupported (not semver-compatible with CLI's supported versions)
 - Any required top-level field is missing
 - Any preset is missing required fields
 - An `entrypoint` path does not exist in the bundle
@@ -155,5 +160,5 @@ See [Custom Tools Docs](https://opencode.ai/docs/custom-tools) for background on
 
 ---
 
-*Contract version: 1*
-*Last updated: 2026-03-30*
+*Contract version: 1.0.0*
+*Last updated: 2026-04-01*
