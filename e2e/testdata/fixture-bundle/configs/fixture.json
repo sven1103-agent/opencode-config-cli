@@ -1,0 +1,6 @@
+{
+  "default_agent": "docs",
+  "routing": {
+    "mode": "fixture"
+  }
+}

@@ -16,13 +16,13 @@ The goal is to migrate from bash to Go for better JSON handling, testability, an
 
 ## Implementation Status
 
-> **Last updated**: 2026-03-31
+> **Last updated**: 2026-04-01
 
 | Status | Count | Legend |
 |--------|-------|--------|
 | ✅ Done | 8 | Completed and merged |
 | ❌ Out of Scope | 1 | Not applicable to CLI |
-| ⏳ Open | 3 | Not yet started |
+| ⏳ Open | 4 | Not yet started |
 
 ---
 
@@ -122,34 +122,41 @@ Exit criteria:
 
 ---
 
-### M4 - Polish & Distribution
+### M4 - Polish, Distribution, and Coverage
 
 **Status**: 🔄 In Progress
 
 Goal:
-- Add polish features and prepare for distribution
+- Add polish features, release distribution, and shipped-binary coverage
 
 Primary stories:
 - `US-048` - Add shell completions
 - `US-049` - Add --interactive flag for TTY mode
 - `US-050` - Set up goreleaser
 - `US-051` - Create Homebrew tap
+- `US-052` - Add CI-backed end-to-end coverage for the Go CLI
 
 Implementation:
 - `US-048`: ⏳ Open
 - `US-049`: ⏳ Open
 - `US-050`: ✅ Done (PR #90)
 - `US-051`: ⏳ Open
+- `US-052`: ⏳ Open
 
 Why last:
 - These enhance the experience but are not required for core functionality
 - Distribution (goreleaser, Homebrew) should come after commands are stable
+- Black-box coverage should validate the shipped `oc` binary after command behavior is stable
 
 Exit criteria:
 - Shell completions for bash, zsh, fish
 - Interactive mode with --interactive flag for relevant commands
 - goreleaser configured for automated releases
 - Homebrew tap created/updated
+- Dedicated GitHub Actions workflow builds `oc` and runs black-box E2E tests
+- E2E workflow runs on Linux and macOS
+- E2E tests cover local directory and local archive source flows
+- E2E coverage inventory is documented and kept current
 
 ---
 
@@ -166,6 +173,9 @@ Extended commands depend on MVP:
 
 Polish depends on extended:
 - `US-047` -> `US-048`, `US-049` -> `US-050` -> `US-051`
+
+Shipped-binary coverage depends on core command stability:
+- `US-045`, `US-046` -> `US-052`
 
 ---
 
@@ -187,6 +197,7 @@ Polish depends on extended:
 | 10 | `US-049` | ⏳ Open | Add --interactive flag |
 | 11 | `US-050` | ✅ Done | Set up goreleaser (PR #90) |
 | 12 | `US-051` | ⏳ Open | Create Homebrew tap |
+| 13 | `US-052` | ⏳ Open | Add CI-backed end-to-end coverage for the Go CLI |
 
 ---
 

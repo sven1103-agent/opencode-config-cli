@@ -1,0 +1,44 @@
+name: E2E CLI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-cli-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e-cli:
+    name: E2E CLI (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache: true
+
+      - name: Create build directory
+        run: mkdir -p .tmp
+
+      - name: Build CLI
+        run: go build -o .tmp/oc .
+
+      - name: Run E2E tests
+        run: go test ./e2e -v
+        env:
+          OC_E2E_BINARY: ${{ github.workspace }}/.tmp/oc

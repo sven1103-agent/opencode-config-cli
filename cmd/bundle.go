@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/sven1103-agent/opencode-config-cli/internal/bundle"
+	configpreset "github.com/sven1103-agent/opencode-config-cli/internal/preset"
 	"github.com/sven1103-agent/opencode-config-cli/internal/source"
 )
 
@@ -146,7 +147,7 @@ func runBundleApply(sourceID string) error {
 	}
 
 	// Get preset from manifest
-	preset, err := bundle.GetPreset(manifest, bundlePreset)
+	bundlePresetEntry, err := bundle.GetPreset(manifest, bundlePreset)
 	if err != nil {
 		return fmt.Errorf("preset not found in bundle: %s", bundlePreset)
 	}
@@ -160,7 +161,7 @@ func runBundleApply(sourceID string) error {
 	}
 
 	// Read preset content
-	presetFilePath := filepath.Join(bundleRoot, preset.Entrypoint)
+	presetFilePath := filepath.Join(bundleRoot, bundlePresetEntry.Entrypoint)
 	presetContent, err := os.ReadFile(presetFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to read preset file: %w", err)
@@ -173,11 +174,8 @@ func runBundleApply(sourceID string) error {
 		return nil
 	}
 
-	// Write config file
-	if err := os.WriteFile(outputPath, presetContent, 0644); err != nil {
-		if !bundleForce && os.IsExist(err) {
-			return fmt.Errorf("output file exists: %s (use --force to overwrite)", outputPath)
-		}
+	// Reuse the shared write semantics so bundle apply matches init/preset overwrite behavior.
+	if err := configpreset.WriteConfig(outputPath, string(presetContent), bundleForce); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
 	fmt.Printf("written: %s\n", outputPath)
@@ -189,7 +187,7 @@ func runBundleApply(sourceID string) error {
 		SourceType:    string(src.Type),
 		BundleVersion: manifest.BundleVersion,
 		PresetName:    bundlePreset,
-		Entrypoint:    preset.Entrypoint,
+		Entrypoint:    bundlePresetEntry.Entrypoint,
 		AppliedAt:     "2026-03-31T00:00:00Z", // Would use time.Now().Format(time.RFC3339)
 	}
 

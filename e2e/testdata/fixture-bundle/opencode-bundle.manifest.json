@@ -1,0 +1,13 @@
+{
+  "manifest_version": "1.0.0",
+  "bundle_name": "fixture-bundle",
+  "bundle_version": "v1.0.0",
+  "bundle_root": ".",
+  "presets": [
+    {
+      "name": "fixture",
+      "entrypoint": "configs/fixture.json",
+      "description": "Fixture preset for black-box CLI tests"
+    }
+  ]
+}

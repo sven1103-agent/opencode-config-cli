@@ -1153,6 +1153,7 @@ Satisfies:
 | [US-049](#us-049) | User Story | (Go Migration) |
 | [US-050](#us-050) | User Story | (Go Migration) |
 | [US-051](#us-051) | User Story | (Go Migration) |
+| [US-052](#us-052) | User Story | (Go Migration) |
 
 ---
 
@@ -1441,6 +1442,34 @@ Acceptance criteria:
 - Homebrew tap created/updated
 - Installation via `brew install sven1103-agent/opencode-config-cli/oc` works
 - Formula stays up to date with releases
+
+---
+
+### <a id="us-052"></a>US-052 - Add CI-backed end-to-end coverage for the Go CLI
+
+Priority:
+- P1
+
+Status:
+- Open
+
+Type:
+- Release-engineering-facing
+
+Related stories:
+- [US-041](#us-041)
+- [US-045](#us-045)
+- [US-046](#us-046)
+
+Story:
+- As a maintainer, I want CI to execute black-box tests against the built `oc` binary so that shipped command wiring, filesystem behavior, and user-facing flows are validated before merge.
+
+Acceptance criteria:
+- A dedicated GitHub Actions workflow builds `oc` and runs CLI E2E tests on push and pull request.
+- E2E tests execute the compiled binary via `os/exec` instead of calling command internals directly.
+- The workflow runs on `ubuntu-latest` and `macos-latest`.
+- Initial E2E coverage includes `version`, local source registration, local bundle apply, local archive apply, provenance status, and key offline failure paths.
+- Covered and deferred scenarios are tracked in a dedicated E2E coverage reference document.
 
 ---
 
