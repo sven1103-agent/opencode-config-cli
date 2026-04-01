@@ -5,7 +5,11 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -119,6 +123,73 @@ func TestLocalArchiveFlow(t *testing.T) {
 	}
 	if prov.SourceName != "fixture-archive" {
 		t.Fatalf("expected source name fixture-archive, got %q", prov.SourceName)
+	}
+}
+
+func TestGitHubReleaseFlow(t *testing.T) {
+	env := testEnv(t)
+	projectRoot := t.TempDir()
+	bundleDir := filepath.Join(t.TempDir(), "opencode-config-bundle-v1.2.3")
+	if err := os.MkdirAll(bundleDir, 0o755); err != nil {
+		t.Fatalf("failed to create bundle dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(bundleDir, "opencode-bundle.manifest.json"), []byte(`{
+		"manifest_version": "1.0.0",
+		"bundle_name": "fixture-github",
+		"bundle_version": "v1.2.3",
+		"presets": [
+			{"name": "fixture", "entrypoint": "opencode.json"}
+		]
+	}`), 0o644); err != nil {
+		t.Fatalf("failed to write manifest: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(bundleDir, "opencode.json"), []byte(`{"mode":"github-fixture"}`), 0o644); err != nil {
+		t.Fatalf("failed to write preset: %v", err)
+	}
+
+	archivePath := filepath.Join(t.TempDir(), "opencode-config-bundle-v1.2.3.tar.gz")
+	createTarGzFromDir(t, bundleDir, archivePath)
+	archiveData, err := os.ReadFile(archivePath)
+	if err != nil {
+		t.Fatalf("failed to read archive: %v", err)
+	}
+	archiveSHA := fmt.Sprintf("%x", sha256.Sum256(archiveData))
+	checksums := fmt.Sprintf("%s  %s\n", archiveSHA, filepath.Base(archivePath))
+
+	server := newGitHubReleaseE2EServer(t, githubReleaseE2EFixture{
+		repo:         "owner/repo",
+		tag:          "v1.2.3",
+		archiveName:  filepath.Base(archivePath),
+		archiveBytes: archiveData,
+		checksums:    checksums,
+	})
+	defer server.Close()
+
+	env = append(env, "OC_GITHUB_API_BASE_URL="+server.URL)
+
+	addResult := runOC(t, env, "source", "add", "owner/repo", "--name", "fixture-github")
+	requireSuccess(t, addResult)
+	sourceID := extractSourceID(t, addResult.stdout)
+
+	applyResult := runOC(t, env, "bundle", "apply", sourceID, "--version", "v1.2.3", "--preset", "fixture", "--project-root", projectRoot)
+	requireSuccess(t, applyResult)
+
+	configPath := filepath.Join(projectRoot, "opencode.json")
+	configData, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("failed to read applied config: %v", err)
+	}
+	requireContains(t, string(configData), `"mode":"github-fixture"`)
+
+	prov := readProvenance(t, filepath.Join(projectRoot, ".opencode", "bundle-provenance.json"))
+	if prov.SourceType != "github-release" {
+		t.Fatalf("expected source type github-release, got %q", prov.SourceType)
+	}
+	if prov.BundleVersion != "v1.2.3" {
+		t.Fatalf("expected bundle version v1.2.3, got %q", prov.BundleVersion)
+	}
+	if prov.SourceName != "fixture-github" {
+		t.Fatalf("expected source name fixture-github, got %q", prov.SourceName)
 	}
 }
 
@@ -341,4 +412,49 @@ func createTarGzFromDir(t *testing.T, sourceDir, archivePath string) {
 	if err := archiveFile.Close(); err != nil {
 		t.Fatalf("failed to close archive file: %v", err)
 	}
+}
+
+type githubReleaseE2EFixture struct {
+	repo         string
+	tag          string
+	archiveName  string
+	archiveBytes []byte
+	checksums    string
+}
+
+func newGitHubReleaseE2EServer(t *testing.T, fixture githubReleaseE2EFixture) *httptest.Server {
+	t.Helper()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/repos/"+fixture.repo+"/releases/latest", func(w http.ResponseWriter, r *http.Request) {
+		writeReleaseResponse(w, r, fixture)
+	})
+	mux.HandleFunc("/repos/"+fixture.repo+"/releases/tags/"+fixture.tag, func(w http.ResponseWriter, r *http.Request) {
+		writeReleaseResponse(w, r, fixture)
+	})
+	mux.HandleFunc("/downloads/"+fixture.repo+"/releases/download/"+fixture.tag+"/"+fixture.archiveName, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/gzip")
+		_, _ = w.Write(fixture.archiveBytes)
+	})
+	mux.HandleFunc("/downloads/"+fixture.repo+"/releases/download/"+fixture.tag+"/opencode-config-bundle-"+fixture.tag+"-checksums.txt", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		_, _ = w.Write([]byte(fixture.checksums))
+	})
+	return httptest.NewServer(mux)
+}
+
+func writeReleaseResponse(w http.ResponseWriter, r *http.Request, fixture githubReleaseE2EFixture) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"tag_name": fixture.tag,
+		"assets": []map[string]string{
+			{
+				"name":                 fixture.archiveName,
+				"browser_download_url": fmt.Sprintf("http://%s/downloads/%s/releases/download/%s/%s", r.Host, fixture.repo, fixture.tag, fixture.archiveName),
+			},
+			{
+				"name":                 "opencode-config-bundle-" + fixture.tag + "-checksums.txt",
+				"browser_download_url": fmt.Sprintf("http://%s/downloads/%s/releases/download/%s/%s", r.Host, fixture.repo, fixture.tag, "opencode-config-bundle-"+fixture.tag+"-checksums.txt"),
+			},
+		},
+	})
 }
