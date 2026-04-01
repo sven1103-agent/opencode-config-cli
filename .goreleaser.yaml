@@ -4,15 +4,15 @@
 
 version: 2
 
-project_name: opencode-helper
+project_name: oc
 
 before:
   hooks:
     - go mod tidy
 
 builds:
-  - id: opencode-helper
-    binary: opencode-helper
+    - id: oc
+    binary: oc
     main: ./main.go
     env:
       - CGO_ENABLED=0
@@ -28,7 +28,7 @@ builds:
         goarch: arm64
     ldflags:
       - -s -w
-      - -X github.com/sven1103-agent/opencode-helper/internal/version.Version={{.Version}}
+      - -X github.com/sven1103-agent/opencode-config-cli/internal/version.Version={{.Version}}
 
 changelog:
   sort: desc
