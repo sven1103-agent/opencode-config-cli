@@ -20,7 +20,7 @@ var schemaCompiler *jsonschema.Compiler
 
 func init() {
 	schemaCompiler = jsonschema.NewCompiler()
-	if err := schemaCompiler.AddResource("schema.json", strings.NewReader(embeddedSchema)); err != nil {
+	if err := schemaCompiler.AddResource("1.0.0.schema.json", strings.NewReader(embeddedSchema)); err != nil {
 		panic(fmt.Sprintf("failed to load embedded schema: %v", err))
 	}
 }
