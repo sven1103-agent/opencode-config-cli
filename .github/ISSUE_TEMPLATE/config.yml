@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Releases
+    url: https://github.com/sven1103-agent/opencode-config-cli/releases
+    about: Try the latest prerelease and report issues here

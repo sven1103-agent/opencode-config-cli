@@ -67,6 +67,26 @@ oc source add qbicsoftware/opencode-config-bundle --name qbic
 oc bundle apply qbic --preset mixed --project-root .
 ```
 
+## Prerelease Feedback
+
+Please smoke-test prereleases and open a GitHub issue if you find a problem.
+
+When reporting a prerelease issue, include:
+
+- the prerelease version tested
+- OS and shell
+- install method
+- command run
+- expected behavior
+- actual behavior
+- reproduction steps
+
+Maintainer triage stays lightweight:
+
+- all feedback is welcome as normal GitHub issues
+- only maintainer-approved issues are added to milestone `1.0.0`
+- only clear GA blockers get the `release:blocker` label
+
 ## Upgrading to V2 (Config Source Management)
 
 The V2 CLI introduces **config source management** — a new way to manage your OpenCode configuration using registered sources instead of bundled presets.

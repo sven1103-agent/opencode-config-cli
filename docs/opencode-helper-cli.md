@@ -4,6 +4,7 @@
 
 - [Overview](#overview)
 - [Decision Log](#decision-log)
+- [Release Intake](#release-intake)
 - [PRD](#prd)
 - [Scope](#scope)
 - [Requirements](#requirements)
@@ -64,6 +65,33 @@ The helper CLI remains the supported installer/applier:
 Interaction with DEC-001:
 - DEC-001 remains the V1 baseline.
 - DEC-002 supersedes DEC-001 for V2+ scope.
+
+---
+
+## Release Intake
+
+### <a id="release-intake-001"></a>Release Intake For 1.0.0
+
+The `1.0.0` GitHub milestone is the sole curated release todo list for general availability.
+
+Lightweight maintainer process:
+
+- prerelease testers are encouraged to open normal GitHub issues for any bug or rough edge they find
+- the repository provides a small prerelease bug report issue template to make reports easier to reproduce
+- only the maintainer assigns issues to milestone `1.0.0`
+- only issues that must land before GA are added to milestone `1.0.0`
+- only clear GA blockers receive the `release:blocker` label
+- valid but non-GA issues may remain outside the milestone or receive `release:post-1.0.0`
+
+Prerelease release notes should include a short call for smoke testing and issue filing, asking reporters to provide:
+
+- prerelease version tested
+- OS and shell
+- install method
+- command run
+- expected behavior
+- actual behavior
+- reproduction steps
 
 ---
 
