@@ -48,23 +48,24 @@ jobs:
           go-version: '1.21'
           cache: true
 
-      - name: Stamp version into source
+      - name: Validate source version matches release tag
         shell: bash
         run: |
           tag='${{ steps.version.outputs.tag }}'
-          perl -0pi -e "s/var Version = \"[^\"]+\"/var Version = \"${tag}\"/" internal/version/version.go
-          git diff -- internal/version/version.go
+          current_version=$(perl -n -e 'print "$1\n" if /var Version = "([^"]+)"/' internal/version/version.go)
 
-      - name: Commit stamped version
-        shell: bash
-        run: |
-          git add internal/version/version.go
-          if git diff --cached --quiet; then
-            echo "Version file already matches requested tag"
-            exit 0
+          if [[ -z "$current_version" ]]; then
+            echo "Failed to read version from internal/version/version.go" >&2
+            exit 1
           fi
-          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m "chore: stamp version ${{ steps.version.outputs.tag }}"
-          git push origin HEAD:${{ github.ref_name }}
+
+          if [[ "$current_version" != "$tag" ]]; then
+            echo "Release tag ${tag} does not match internal/version/version.go (${current_version})." >&2
+            echo "Create and merge a version bump PR before running the release workflow." >&2
+            exit 1
+          fi
+
+          echo "Validated source version ${current_version}"
 
       - name: Create git tag
         run: |
