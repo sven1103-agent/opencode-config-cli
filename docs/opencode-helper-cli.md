@@ -1451,7 +1451,10 @@ Priority:
 - P1
 
 Status:
-- Open
+- Done
+
+PR:
+- [#120](https://github.com/sven1103-agent/opencode-config-cli/pull/120)
 
 Type:
 - Release-engineering-facing

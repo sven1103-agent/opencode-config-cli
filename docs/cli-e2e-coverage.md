@@ -28,6 +28,10 @@ It is the durable inventory for what is already covered, what is verified in CI,
 - Current CI platforms:
   - `ubuntu-latest`
   - `macos-latest`
+- Latest verified `main` run:
+  - GitHub Actions run `23850747833`
+  - `E2E CLI (ubuntu-latest)`: success
+  - `E2E CLI (macos-latest)`: success
 
 ## Test Harness
 
@@ -43,17 +47,17 @@ It is the durable inventory for what is already covered, what is verified in CI,
 
 | Scenario | Command(s) | Source Type | Status | CI Verified | Notes |
 |---|---|---|---|---|---|
-| Print version | `oc version` | n/a | Implemented | No | Verifies built binary launches and prints version |
-| Register local directory source | `oc source add <dir>` | local directory | Implemented | No | Uses fixture bundle with manifest |
-| Register local archive source | `oc source add <tar.gz>` | local archive | Implemented | No | Archive generated at test runtime |
-| List registered sources | `oc source list` | registry | Implemented | No | Confirms isolated registry contents |
-| Apply preset from local directory source | `oc bundle apply <id> --preset <name>` | local directory | Implemented | No | Verifies written config and provenance |
-| Apply preset from local archive source | `oc bundle apply <id> --preset <name>` | local archive | Implemented | No | Exercises tar extraction path |
-| Show applied bundle provenance | `oc bundle status --project-root <dir>` | project provenance | Implemented | No | Reads `.opencode/bundle-provenance.json` through CLI |
-| Refuse overwrite without force | `oc bundle apply <id> --preset <name>` | local directory | Implemented | No | Must fail when output already exists |
-| Reject missing manifest source | `oc source add <dir>` | invalid local directory | Implemented | No | Validates manifest presence check |
-| Reject invalid tarball | `oc source add <tar.gz>` and/or `oc bundle apply <id> --preset <name>` | invalid local archive | Implemented | No | Verifies archive extraction failure path |
-| Reject unknown source ID | `oc bundle apply <id> --preset <name>` | registry lookup | Implemented | No | Verifies user-facing error path |
+| Print version | `oc version` | n/a | Implemented | Yes | Verified by successful `main` workflow matrix run on Linux and macOS |
+| Register local directory source | `oc source add <dir>` | local directory | Implemented | Yes | Uses fixture bundle with manifest |
+| Register local archive source | `oc source add <tar.gz>` | local archive | Implemented | Yes | Archive generated at test runtime |
+| List registered sources | `oc source list` | registry | Implemented | Yes | Covered inside the local directory flow |
+| Apply preset from local directory source | `oc bundle apply <id> --preset <name>` | local directory | Implemented | Yes | Verifies written config and provenance |
+| Apply preset from local archive source | `oc bundle apply <id> --preset <name>` | local archive | Implemented | Yes | Exercises tar extraction path |
+| Show applied bundle provenance | `oc bundle status --project-root <dir>` | project provenance | Implemented | Yes | Reads `.opencode/bundle-provenance.json` through CLI |
+| Refuse overwrite without force | `oc bundle apply <id> --preset <name>` | local directory | Implemented | Yes | Must fail when output already exists |
+| Reject missing manifest source | `oc source add <dir>` | invalid local directory | Implemented | Yes | Validates manifest presence check |
+| Reject invalid tarball | `oc source add <tar.gz>` and/or `oc bundle apply <id> --preset <name>` | invalid local archive | Implemented | Yes | Verifies archive extraction failure path |
+| Reject unknown source ID | `oc bundle apply <id> --preset <name>` | registry lookup | Implemented | Yes | Verifies user-facing error path |
 
 ## Deferred Scenarios
 
@@ -82,3 +86,4 @@ It is the durable inventory for what is already covered, what is verified in CI,
 
 - 2026-04-01: Document created for `US-052` initial local-flow coverage planning
 - 2026-04-01: Initial local-flow scenarios implemented in `e2e/` and wired into `.github/workflows/e2e-cli.yml`
+- 2026-04-01: Marked initial local-flow scenarios as CI-verified after successful `main` workflow run `23850747833` on Linux and macOS
