@@ -11,7 +11,7 @@ before:
     - go mod tidy
 
 builds:
-    - id: oc
+  - id: oc
     binary: oc
     main: ./main.go
     env:
