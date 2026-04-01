@@ -20,9 +20,9 @@ The goal is to migrate from bash to Go for better JSON handling, testability, an
 
 | Status | Count | Legend |
 |--------|-------|--------|
-| ✅ Done | 8 | Completed and merged |
+| ✅ Done | 9 | Completed and merged |
 | ❌ Out of Scope | 1 | Not applicable to CLI |
-| ⏳ Open | 4 | Not yet started |
+| ⏳ Open | 3 | Not yet started |
 
 ---
 
@@ -141,7 +141,7 @@ Implementation:
 - `US-049`: ⏳ Open
 - `US-050`: ✅ Done (PR #90)
 - `US-051`: ⏳ Open
-- `US-052`: ⏳ Open
+- `US-052`: ✅ Done (PR #120)
 
 Why last:
 - These enhance the experience but are not required for core functionality
@@ -197,7 +197,7 @@ Shipped-binary coverage depends on core command stability:
 | 10 | `US-049` | ⏳ Open | Add --interactive flag |
 | 11 | `US-050` | ✅ Done | Set up goreleaser (PR #90) |
 | 12 | `US-051` | ⏳ Open | Create Homebrew tap |
-| 13 | `US-052` | ⏳ Open | Add CI-backed end-to-end coverage for the Go CLI |
+| 13 | `US-052` | ✅ Done | Add CI-backed end-to-end coverage for the Go CLI (PR #120) |
 
 ---
 
