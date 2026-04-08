@@ -4,9 +4,7 @@
 [![Go Version](https://img.shields.io/github/go-mod/go-version/sven1103-agent/opencode-config-cli?logo=go)](https://github.com/sven1103-agent/opencode-config-cli/blob/main/go.mod)
 [![Latest Release](https://img.shields.io/github/v/release/sven1103-agent/opencode-config-cli?sort=semver)](https://github.com/sven1103-agent/opencode-config-cli/releases/latest)
 [![Pre-release](https://img.shields.io/github/v/release/sven1103-agent/opencode-config-cli?include_prereleases&sort=semver&label=pre-release)](https://github.com/sven1103-agent/opencode-config-cli/releases)
-[![CI](https://github.com/sven1103-agent/opencode-config-cli/actions/workflows/ci/badge.svg)](https://github.com/sven1103-agent/opencode-config-cli/actions/workflows/ci)
-[![E2E CLI](https://github.com/sven1103-agent/opencode-config-cli/actions/workflows/e2e-cli/badge.svg)](https://github.com/sven1103-agent/opencode-config-cli/actions/workflows/e2e-cli)
-
+[![CI](https://github.com/sven1103-agent/opencode-config-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/sven1103-agent/opencode-config-cli/actions/workflows/ci.yml)[![E2E CLI](https://github.com/sven1103-agent/opencode-config-cli/actions/workflows/e2e-cli.yml/badge.svg)](https://github.com/sven1103-agent/opencode-config-cli/actions/workflows/e2e-cli.yml)
 **Manage OpenCode configuration bundles and schema-validated multi-agent workflows**
 
 ## What is this?
