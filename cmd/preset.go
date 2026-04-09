@@ -106,7 +106,7 @@ func runSourcePresetList() error {
 	for _, src := range sources {
 		versionTag := ""
 		if string(src.Type) == "github-release" {
-			versionTag, err = resolveGitHubBundleVersion(src.Location, "")
+			versionTag, err = inspectGitHubBundleVersion(src.Location, "")
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "warning: failed to inspect source %s (%s): %v\n", src.Name, src.ID, err)
 				continue

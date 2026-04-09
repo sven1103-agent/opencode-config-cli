@@ -1,12 +1,14 @@
 package cmd
 
 import (
+	"bytes"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/sven1103-agent/opencode-config-cli/internal/bundle"
 	"github.com/sven1103-agent/opencode-config-cli/internal/source"
 )
@@ -375,6 +377,104 @@ func TestBundleApplyGitHubSourceReportsPrereleaseOnlyOutsideInteractiveMode(t *t
 	}
 	if !strings.Contains(err.Error(), "only prereleases are available") {
 		t.Fatalf("runBundleApply() error = %v", err)
+	}
+}
+
+func TestBundleApplyGitHubSourceSinglePrereleaseStillRequiresVersionOutsideInteractiveMode(t *testing.T) {
+	restore := saveRegistry(t)
+	defer restore()
+
+	registry, _ := source.LoadRegistry()
+	registry.Sources = []source.Source{{
+		ID:       "github1",
+		Location: "qbicsoftware/opencode-config-bundle",
+		Type:     source.SourceTypeGitHubRelease,
+		Name:     "qbic",
+	}}
+	if err := source.SaveRegistry(registry); err != nil {
+		t.Fatalf("failed to save registry: %v", err)
+	}
+
+	origPreset := bundlePreset
+	origVersion := bundleVersion
+	origListReleases := bundleListGitHubReleases
+	origTTY := bundleInputIsTTY
+	defer func() {
+		bundlePreset = origPreset
+		bundleVersion = origVersion
+		bundleListGitHubReleases = origListReleases
+		bundleInputIsTTY = origTTY
+	}()
+
+	bundlePreset = "test"
+	bundleVersion = ""
+	bundleInputIsTTY = func() bool { return false }
+	bundleListGitHubReleases = func(string) ([]bundle.GitHubReleaseVersion, error) {
+		return []bundle.GitHubReleaseVersion{{TagName: "v1.4.0-alpha.1", Prerelease: true}}, nil
+	}
+
+	err := runBundleApply("github1")
+	if err == nil {
+		t.Fatal("runBundleApply() error = nil, want prerelease-only version-selection error")
+	}
+	if !strings.Contains(err.Error(), "only prereleases are available") {
+		t.Fatalf("runBundleApply() error = %v", err)
+	}
+}
+
+func TestCompleteBundlePresetNamesGitHubSourceUsesNonInteractiveInspection(t *testing.T) {
+	restore := saveRegistry(t)
+	defer restore()
+
+	registry, _ := source.LoadRegistry()
+	registry.Sources = []source.Source{{ID: "github1", Name: "qbic", Type: source.SourceTypeGitHubRelease, Location: "qbicsoftware/opencode-config-bundle"}}
+	if err := source.SaveRegistry(registry); err != nil {
+		t.Fatalf("failed to save registry: %v", err)
+	}
+
+	origResolver := bundleResolveToLocal
+	origListReleases := bundleListGitHubReleases
+	origTTY := bundleInputIsTTY
+	origPromptOut := bundlePromptOut
+	defer func() {
+		bundleResolveToLocal = origResolver
+		bundleListGitHubReleases = origListReleases
+		bundleInputIsTTY = origTTY
+		bundlePromptOut = origPromptOut
+	}()
+
+	bundleInputIsTTY = func() bool { return true }
+	var promptOutput bytes.Buffer
+	bundlePromptOut = &promptOutput
+	bundleListGitHubReleases = func(string) ([]bundle.GitHubReleaseVersion, error) {
+		return []bundle.GitHubReleaseVersion{{TagName: "v2.0.0-alpha.1", Prerelease: true}, {TagName: "v1.9.0", Prerelease: false}}, nil
+	}
+	bundleResolveToLocal = func(sourceType, sourceLocation, versionTag string) (string, func(), error) {
+		if versionTag != "v1.9.0" {
+			t.Fatalf("versionTag = %q, want latest stable", versionTag)
+		}
+		bundleRoot := t.TempDir()
+		manifest := `{"manifest_version":"1.0.0","bundle_name":"qbic","bundle_version":"v1.9.0","presets":[{"name":"test","entrypoint":"test.json"}]}`
+		if err := os.WriteFile(filepath.Join(bundleRoot, "opencode-bundle.manifest.json"), []byte(manifest), 0644); err != nil {
+			return "", nil, err
+		}
+		if err := os.WriteFile(filepath.Join(bundleRoot, "test.json"), []byte(`{"agents":[]}`), 0644); err != nil {
+			return "", nil, err
+		}
+		return bundleRoot, func() {}, nil
+	}
+
+	cmd := &cobra.Command{}
+	cmd.Flags().String("version", "", "")
+	completions, directive := completeBundlePresetNames(cmd, []string{"qbic"}, "t")
+	if directive != cobra.ShellCompDirectiveNoFileComp {
+		t.Fatalf("directive = %v", directive)
+	}
+	if promptOutput.Len() != 0 {
+		t.Fatalf("completion should not prompt, got %q", promptOutput.String())
+	}
+	if len(completions) != 1 || completions[0] != "test" {
+		t.Fatalf("completions = %v", completions)
 	}
 }
 

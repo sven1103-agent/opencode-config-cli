@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sven1103-agent/opencode-config-cli/internal/bundle"
 	"github.com/sven1103-agent/opencode-config-cli/internal/source"
 )
 
@@ -130,5 +131,143 @@ func TestRunPresetListSources(t *testing.T) {
 	stdout := string(stdoutBytes)
 	if !strings.Contains(stdout, "qbic") || !strings.Contains(stdout, "v1.2.3") || !strings.Contains(stdout, "mixed") {
 		t.Fatalf("stdout = %s", stdout)
+	}
+}
+
+func TestRunPresetListSourcesGitHubUsesLatestStableInspection(t *testing.T) {
+	restore := saveRegistry(t)
+	defer restore()
+
+	registry, _ := source.LoadRegistry()
+	registry.Sources = []source.Source{{ID: "id-1", Name: "qbic", Type: source.SourceTypeGitHubRelease, Location: "qbicsoftware/opencode-config-bundle"}}
+	if err := source.SaveRegistry(registry); err != nil {
+		t.Fatalf("failed to save registry: %v", err)
+	}
+
+	origResolve := presetResolveToLocal
+	origListReleases := bundleListGitHubReleases
+	origTTY := bundleInputIsTTY
+	origStdout := os.Stdout
+	origStderr := os.Stderr
+	defer func() {
+		presetResolveToLocal = origResolve
+		bundleListGitHubReleases = origListReleases
+		bundleInputIsTTY = origTTY
+		os.Stdout = origStdout
+		os.Stderr = origStderr
+	}()
+
+	bundleInputIsTTY = func() bool { return true }
+	bundleListGitHubReleases = func(string) ([]bundle.GitHubReleaseVersion, error) {
+		return []bundle.GitHubReleaseVersion{{TagName: "v2.0.0-alpha.1", Prerelease: true}, {TagName: "v1.9.0", Prerelease: false}}, nil
+	}
+	presetResolveToLocal = func(sourceType, sourceLocation, versionTag string) (string, func(), error) {
+		if versionTag != "v1.9.0" {
+			t.Fatalf("versionTag = %q, want latest stable", versionTag)
+		}
+		bundleDir := t.TempDir()
+		manifest := `{"manifest_version":"1.0.0","bundle_name":"qbic","bundle_version":"v1.9.0","presets":[{"name":"mixed","entrypoint":"mixed.json","description":"Mixed preset"}]}`
+		if err := os.WriteFile(filepath.Join(bundleDir, "opencode-bundle.manifest.json"), []byte(manifest), 0644); err != nil {
+			return "", nil, err
+		}
+		if err := os.WriteFile(filepath.Join(bundleDir, "mixed.json"), []byte(`{"agents":[]}`), 0644); err != nil {
+			return "", nil, err
+		}
+		return bundleDir, func() {}, nil
+	}
+
+	rOut, wOut, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create stdout pipe: %v", err)
+	}
+	rErr, wErr, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create stderr pipe: %v", err)
+	}
+	os.Stdout = wOut
+	os.Stderr = wErr
+
+	err = runSourcePresetList()
+	wOut.Close()
+	wErr.Close()
+	if err != nil {
+		t.Fatalf("runSourcePresetList() error = %v", err)
+	}
+
+	stdoutBytes, _ := io.ReadAll(rOut)
+	stderrBytes, _ := io.ReadAll(rErr)
+	if len(stderrBytes) != 0 {
+		t.Fatalf("stderr = %s", stderrBytes)
+	}
+	stdout := string(stdoutBytes)
+	if !strings.Contains(stdout, "v1.9.0") || !strings.Contains(stdout, "mixed") {
+		t.Fatalf("stdout = %s", stdout)
+	}
+}
+
+func TestRunPresetListSourcesGitHubPrereleaseOnlyWarnsWithoutPrompting(t *testing.T) {
+	restore := saveRegistry(t)
+	defer restore()
+
+	registry, _ := source.LoadRegistry()
+	registry.Sources = []source.Source{{ID: "id-1", Name: "qbic", Type: source.SourceTypeGitHubRelease, Location: "qbicsoftware/opencode-config-bundle"}}
+	if err := source.SaveRegistry(registry); err != nil {
+		t.Fatalf("failed to save registry: %v", err)
+	}
+
+	origResolve := presetResolveToLocal
+	origListReleases := bundleListGitHubReleases
+	origTTY := bundleInputIsTTY
+	origStdout := os.Stdout
+	origStderr := os.Stderr
+	defer func() {
+		presetResolveToLocal = origResolve
+		bundleListGitHubReleases = origListReleases
+		bundleInputIsTTY = origTTY
+		os.Stdout = origStdout
+		os.Stderr = origStderr
+	}()
+
+	bundleInputIsTTY = func() bool { return true }
+	bundleListGitHubReleases = func(string) ([]bundle.GitHubReleaseVersion, error) {
+		return []bundle.GitHubReleaseVersion{{TagName: "v2.0.0-alpha.1", Prerelease: true}}, nil
+	}
+	resolveCalled := false
+	presetResolveToLocal = func(sourceType, sourceLocation, versionTag string) (string, func(), error) {
+		resolveCalled = true
+		return "", nil, nil
+	}
+
+	rOut, wOut, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create stdout pipe: %v", err)
+	}
+	rErr, wErr, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create stderr pipe: %v", err)
+	}
+	os.Stdout = wOut
+	os.Stderr = wErr
+
+	err = runSourcePresetList()
+	wOut.Close()
+	wErr.Close()
+	if err == nil {
+		t.Fatal("runSourcePresetList() error = nil, want no inspectable presets error")
+	}
+	if !strings.Contains(err.Error(), "no inspectable source presets found") {
+		t.Fatalf("runSourcePresetList() error = %v", err)
+	}
+	if resolveCalled {
+		t.Fatal("preset list should not resolve prerelease-only github source without explicit version")
+	}
+
+	stdoutBytes, _ := io.ReadAll(rOut)
+	stderrBytes, _ := io.ReadAll(rErr)
+	if len(stdoutBytes) == 0 {
+		t.Fatal("expected table header on stdout")
+	}
+	if !strings.Contains(string(stderrBytes), "no stable release found") {
+		t.Fatalf("stderr = %s", stderrBytes)
 	}
 }

@@ -146,7 +146,7 @@ func runBundleApply(sourceRef string) error {
 	}
 	selectedVersion := bundleVersion
 	if string(src.Type) == "github-release" {
-		selectedVersion, err = resolveGitHubBundleVersion(src.Location, bundleVersion)
+		selectedVersion, err = resolveGitHubBundleVersion(src.Location, bundleVersion, true)
 		if err != nil {
 			return err
 		}
@@ -234,7 +234,7 @@ func runBundleApply(sourceRef string) error {
 	return nil
 }
 
-func resolveGitHubBundleVersion(sourceLocation, requestedVersion string) (string, error) {
+func resolveGitHubBundleVersion(sourceLocation, requestedVersion string, allowPrompt bool) (string, error) {
 	if requestedVersion != "" {
 		return requestedVersion, nil
 	}
@@ -251,19 +251,44 @@ func resolveGitHubBundleVersion(sourceLocation, requestedVersion string) (string
 	if err != nil {
 		return "", err
 	}
-
-	if len(releases) == 1 {
-		return releases[0].TagName, nil
-	}
-
-	if bundleAuto || !bundleInputIsTTY() {
+	if !allowPrompt || bundleAuto || !bundleInputIsTTY() {
 		if hasStableGitHubRelease(releases) {
 			return "", fmt.Errorf("--version is required for github-release sources outside interactive mode (use --version latest or --version <tag>)")
 		}
 		return "", fmt.Errorf("--version is required for github-release sources outside interactive mode; only prereleases are available (use --version <tag>)")
 	}
 
+	if len(releases) == 1 {
+		return releases[0].TagName, nil
+	}
+
 	return promptForGitHubReleaseSelection(sourceLocation, releases)
+}
+
+func inspectGitHubBundleVersion(sourceLocation, requestedVersion string) (string, error) {
+	if requestedVersion != "" {
+		return requestedVersion, nil
+	}
+
+	ref, err := source.ParseGitHubLocation(sourceLocation)
+	if err != nil {
+		return "", err
+	}
+	if ref.Tag != "" {
+		return ref.Tag, nil
+	}
+
+	releases, err := bundleListGitHubReleases(sourceLocation)
+	if err != nil {
+		return "", err
+	}
+	for _, release := range releases {
+		if !release.Prerelease {
+			return release.TagName, nil
+		}
+	}
+
+	return "", fmt.Errorf("no stable release found for %s; prereleases are available", ref.Repo)
 }
 
 func promptForPresetSelection(manifest *bundle.Manifest) (string, error) {
@@ -406,7 +431,7 @@ func completeBundlePresetNames(cmd *cobra.Command, args []string, toComplete str
 		versionTag = flag.Value.String()
 	}
 	if string(src.Type) == "github-release" {
-		versionTag, err = resolveGitHubBundleVersion(src.Location, versionTag)
+		versionTag, err = inspectGitHubBundleVersion(src.Location, versionTag)
 		if err != nil {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		}
