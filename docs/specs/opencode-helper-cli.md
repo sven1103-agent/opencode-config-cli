@@ -1388,7 +1388,7 @@ Status:
 - In progress
 
 PR:
-- TBD
+- [#141](https://github.com/sven1103-agent/opencode-config-cli/pull/141)
 
 Type:
 - User-facing
