@@ -37,9 +37,15 @@ oc preset list --sources
 ### 3. Apply a Preset
 
 ```sh
+oc bundle apply qbic --version v1.0.0 --preset mixed --project-root .
 oc bundle apply qbic --preset mixed --project-root .
-oc bundle apply qbic --project-root .
 ```
+
+If a source publishes multiple versions, the CLI should support:
+
+- explicit version selection with `--version <tag>`
+- `latest` for the latest stable release
+- interactive version selection in a TTY, ordered newest first and clearly labeling prereleases
 
 ## Creating Your Own Bundle
 
@@ -83,11 +89,15 @@ Create `opencode-bundle.manifest.json` at your bundle root:
 
 ### 4. Publish as GitHub Release
 
-1. Create a GitHub release
-2. Attach a `.tar.gz` archive containing:
-   - `opencode-bundle.manifest.json` at root
-   - All preset files
-3. (Optional) Add a `-checksums.txt` for integrity verification
+1. Create a GitHub release. Stable releases and prereleases are both valid bundle sources.
+2. Attach a `.tar.gz` bundle archive containing:
+   - `opencode-bundle.manifest.json` at root, or under a single top-level directory
+   - All preset files referenced by the manifest
+   - `.opencode/schemas/` when your bundle ships the canonical session schemas
+3. Attach a matching `-checksums.txt` file using SHA-256.
+4. Do not rely on GitHub's auto-generated source tarballs as the primary consumable bundle artifact.
+
+See `docs/specs/bundle-contract.md` for the full GitHub-release distribution contract and a copy-pasteable GitHub Actions example workflow.
 
 ### 5. Register Your Bundle
 

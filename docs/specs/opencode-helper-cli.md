@@ -704,7 +704,15 @@ At minimum, the capability model shall distinguish whether a source supports:
 - version selection
 - update checks
 
+For GitHub-release sources, capability handling shall also distinguish whether:
+
+- stable releases are available
+- prereleases are available
+- integrity metadata is available for the selected release
+
 Commands that depend on a capability shall surface a clear error when invoked against a source that does not support it.
+
+When a GitHub-release source has multiple usable versions and the user did not pass `--version`, the CLI should prefer an interactive version-selection prompt in TTY contexts and otherwise return a clear error that explains how to select a version explicitly.
 
 Depends on:
 - [REQ-F-021](#req-f-021)
@@ -718,6 +726,8 @@ Verification requirements:
 - the remote source shall expose integrity metadata sufficient for the CLI to verify the downloaded bundle
 - bundle apply or update shall fail closed if integrity metadata is missing, unreadable, or does not match the downloaded bundle
 - no downloaded remote bundle contents shall be activated for use if integrity verification fails
+
+For GitHub-release sources, the expected integrity metadata is a release-published checksum asset that covers the bundle archive selected for apply or update.
 
 Depends on:
 - [REQ-F-024](#req-f-024)
@@ -2675,11 +2685,15 @@ Story:
 Acceptance criteria:
 - Given a GitHub release source pointing at a valid bundle asset, when I register it, then the CLI records it as a GitHub-release source and can discover presets from its manifest.
 - Given that registered GitHub-release source, when I run `opencode-helper bundle apply <source-id> --version <tag> --preset <name> --project-root <path>`, then the CLI downloads or reuses the selected release asset, resolves it to a normalized bundle root, validates the manifest, and applies the preset.
+- Given that registered GitHub-release source publishes prereleases, when I explicitly select a prerelease tag, then the CLI treats it as a valid bundle version for smoke testing.
+- Given that registered GitHub-release source has multiple usable versions and I do not pass `--version`, when the command runs in a TTY, then the CLI prompts me to choose a version starting with the newest release first and clearly labels prereleases.
 
 Notes:
 - The CLI accepts GitHub release sources as bare `owner/repo`, `github.com/owner/repo`, or a `https://github.com/<owner>/<repo>/releases/tag/<tag>` URL.
 - A valid GitHub release source must publish at least one bundle `.tar.gz` asset whose extracted contents contain `opencode-bundle.manifest.json` either at archive root or under a single top-level directory.
-- If the release also publishes a matching `-checksums.txt` asset, the CLI verifies the downloaded bundle before apply and fails closed on checksum mismatch.
+- A valid GitHub release source may publish stable releases, prereleases, or both.
+- The default `latest` selector refers to the latest stable release.
+- If the release publishes a matching `-checksums.txt` asset, the CLI verifies the downloaded bundle before apply and fails closed on checksum mismatch.
 
 ---
 
@@ -2772,6 +2786,7 @@ Acceptance criteria:
 - Given a registered source, when I run `opencode-helper source list`, then the CLI shows which relevant capabilities that source supports.
 - Given I invoke a capability-dependent command against a source that does not support it, when the command runs, then the CLI exits non-zero with a clear capability error.
 - Given a local directory or local `.tar.gz` source, when the CLI inspects it, then update-check capability is not reported unless explicitly supported by that source type in a future iteration.
+- Given a GitHub-release source with prereleases but no stable releases, when I inspect or apply that source without `--version`, then the CLI reports that only prereleases are available and guides me toward explicit selection or interactive choice instead of surfacing a generic GitHub API `404`.
 
 ---
 
