@@ -102,6 +102,26 @@ func TestLocalDirectoryFlow(t *testing.T) {
 	}
 }
 
+func TestLocalDirectoryApplyBySourceName(t *testing.T) {
+	env := testEnv(t)
+	bundleDir := copyFixtureBundle(t)
+	projectRoot := t.TempDir()
+
+	addResult := runOC(t, env, "source", "add", bundleDir, "--name", "fixture-dir")
+	requireSuccess(t, addResult)
+
+	applyResult := runOC(t, env, "bundle", "apply", "fixture-dir", "--preset", "fixture", "--project-root", projectRoot)
+	requireSuccess(t, applyResult)
+
+	prov := readProvenance(t, filepath.Join(projectRoot, ".opencode", "bundle-provenance.json"))
+	if prov.SourceName != "fixture-dir" {
+		t.Fatalf("expected source name fixture-dir, got %q", prov.SourceName)
+	}
+	if prov.PresetName != "fixture" {
+		t.Fatalf("expected preset fixture, got %q", prov.PresetName)
+	}
+}
+
 func TestLocalArchiveFlow(t *testing.T) {
 	env := testEnv(t)
 	bundleDir := copyFixtureBundle(t)
@@ -198,6 +218,19 @@ func TestBundleApplyFailsForUnknownSource(t *testing.T) {
 	result := runOC(t, testEnv(t), "bundle", "apply", "missing-id", "--preset", "fixture", "--project-root", projectRoot)
 	requireFailure(t, result)
 	requireContains(t, result.stderr, "source not found")
+}
+
+func TestBundleApplyRequiresPresetOutsideTTY(t *testing.T) {
+	env := testEnv(t)
+	bundleDir := copyFixtureBundle(t)
+	projectRoot := t.TempDir()
+
+	addResult := runOC(t, env, "source", "add", bundleDir, "--name", "fixture-dir")
+	requireSuccess(t, addResult)
+
+	applyResult := runOC(t, env, "bundle", "apply", "fixture-dir", "--project-root", projectRoot)
+	requireFailure(t, applyResult)
+	requireContains(t, applyResult.stderr, "--preset is required outside interactive mode")
 }
 
 func TestSourceAddFailsWithoutManifest(t *testing.T) {

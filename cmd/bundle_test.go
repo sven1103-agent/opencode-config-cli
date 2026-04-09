@@ -444,6 +444,34 @@ func TestBundleApplyInteractiveSelectsPreset(t *testing.T) {
 	}
 }
 
+func TestBundleApplyInteractiveAcceptsNumericLikePresetName(t *testing.T) {
+	manifest := &bundle.Manifest{
+		BundleName: "numeric-fixture",
+		Presets: []bundle.Preset{
+			{Name: "first", Description: "First preset"},
+			{Name: "2", Description: "Numeric-like preset"},
+		},
+	}
+
+	origPromptIn := bundlePromptIn
+	origPromptOut := bundlePromptOut
+	defer func() {
+		bundlePromptIn = origPromptIn
+		bundlePromptOut = origPromptOut
+	}()
+
+	bundlePromptIn = strings.NewReader("2\n")
+	bundlePromptOut = io.Discard
+
+	selected, err := promptForPresetSelection(manifest)
+	if err != nil {
+		t.Fatalf("promptForPresetSelection() error = %v", err)
+	}
+	if selected != "2" {
+		t.Fatalf("selected preset = %q, want %q", selected, "2")
+	}
+}
+
 func TestCompleteSourceRefs(t *testing.T) {
 	restore := saveRegistry(t)
 	defer restore()

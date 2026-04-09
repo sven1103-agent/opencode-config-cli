@@ -252,15 +252,15 @@ func promptForPresetSelection(manifest *bundle.Manifest) (string, error) {
 		}
 
 		selection = strings.TrimSpace(selection)
+		for _, preset := range manifest.Presets {
+			if preset.Name == selection {
+				return preset.Name, nil
+			}
+		}
+
 		if index, err := strconv.Atoi(selection); err == nil {
 			if index >= 1 && index <= len(manifest.Presets) {
 				return manifest.Presets[index-1].Name, nil
-			}
-		} else {
-			for _, preset := range manifest.Presets {
-				if preset.Name == selection {
-					return preset.Name, nil
-				}
 			}
 		}
 
