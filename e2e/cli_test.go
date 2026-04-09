@@ -228,7 +228,7 @@ func TestBundleApplyRequiresPresetOutsideTTY(t *testing.T) {
 	addResult := runOC(t, env, "source", "add", bundleDir, "--name", "fixture-dir")
 	requireSuccess(t, addResult)
 
-	applyResult := runOC(t, env, "bundle", "apply", "fixture-dir", "--project-root", projectRoot)
+	applyResult := runOCWithStdin(t, env, strings.NewReader(""), "bundle", "apply", "fixture-dir", "--project-root", projectRoot)
 	requireFailure(t, applyResult)
 	requireContains(t, applyResult.stderr, "--preset is required outside interactive mode")
 }
@@ -284,6 +284,11 @@ func testEnv(t *testing.T) []string {
 
 func runOC(t *testing.T, env []string, args ...string) commandResult {
 	t.Helper()
+	return runOCWithStdin(t, env, nil, args...)
+}
+
+func runOCWithStdin(t *testing.T, env []string, stdin *strings.Reader, args ...string) commandResult {
+	t.Helper()
 	binaryPath := os.Getenv("OC_E2E_BINARY")
 	if binaryPath == "" {
 		t.Skip("OC_E2E_BINARY not set; skipping black-box CLI E2E tests")
@@ -294,6 +299,9 @@ func runOC(t *testing.T, env []string, args ...string) commandResult {
 
 	cmd := exec.CommandContext(ctx, binaryPath, args...)
 	cmd.Env = env
+	if stdin != nil {
+		cmd.Stdin = stdin
+	}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
