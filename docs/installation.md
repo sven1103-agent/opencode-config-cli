@@ -39,6 +39,8 @@ curl -L "https://github.com/sven1103-agent/opencode-config-cli/releases/download
 mv oc ~/.local/bin/
 ```
 
+Set `VERSION` on its own line before running `curl`. Do not collapse this into `VERSION=... curl ...`, because `${VERSION}` is expanded by the shell before that temporary assignment takes effect.
+
 **Available platforms:**
 - `darwin_amd64` — macOS Intel
 - `darwin_arm64` — macOS Apple Silicon
