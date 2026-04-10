@@ -274,6 +274,48 @@ func TestBundleApplyRequiresPresetOutsideTTY(t *testing.T) {
 	requireContains(t, applyResult.stderr, "--preset is required outside interactive mode")
 }
 
+func TestBundleApplyNoArgsFailsInNonTTY(t *testing.T) {
+	// When run without arguments in non-TTY (e2e tests), should fail with helpful message
+	// Use empty stdin to ensure no TTY is detected
+	projectRoot := t.TempDir()
+	result := runOCWithStdin(t, testEnv(t), strings.NewReader(""), "bundle", "apply", "--project-root", projectRoot)
+	requireFailure(t, result)
+	// When there are no sources, it should fail with "no sources registered"
+	// OR when there are sources but no TTY, fail with "source-ref is required"
+	requireContains(t, result.stderr, "source-ref is required")
+	requireContains(t, result.stderr, "non-interactive mode")
+}
+
+func TestBundleApplyAutoFlagRequiresSourceRef(t *testing.T) {
+	// --auto flag should require source-ref argument regardless of TTY
+	env := testEnv(t)
+	bundleDir := copyFixtureBundle(t)
+
+	addResult := runOC(t, env, "source", "add", bundleDir, "--name", "fixture-dir")
+	requireSuccess(t, addResult)
+
+	projectRoot := t.TempDir()
+	// Using --auto without source-ref should fail
+	result := runOCWithStdin(t, env, strings.NewReader(""), "bundle", "apply", "--auto", "--project-root", projectRoot)
+	requireFailure(t, result)
+	requireContains(t, result.stderr, "source-ref is required")
+	requireContains(t, result.stderr, "--auto")
+}
+
+func TestBundleApplyAutoFlagWithPresetRequiresSource(t *testing.T) {
+	// --auto with --preset but no source-ref should fail
+	env := testEnv(t)
+	bundleDir := copyFixtureBundle(t)
+
+	addResult := runOC(t, env, "source", "add", bundleDir, "--name", "fixture-dir")
+	requireSuccess(t, addResult)
+
+	projectRoot := t.TempDir()
+	result := runOCWithStdin(t, env, strings.NewReader(""), "bundle", "apply", "--auto", "--preset", "fixture", "--project-root", projectRoot)
+	requireFailure(t, result)
+	requireContains(t, result.stderr, "source-ref is required")
+}
+
 func TestSourceAddFailsWithoutManifest(t *testing.T) {
 	bundleDir := t.TempDir()
 	result := runOC(t, testEnv(t), "source", "add", bundleDir)
