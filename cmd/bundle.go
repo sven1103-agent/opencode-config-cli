@@ -48,22 +48,35 @@ Examples:
 
 // bundleApplyCmd applies a preset from a registered config bundle
 var bundleApplyCmd = &cobra.Command{
-	Use:   "apply <source-ref>",
+	Use:   "apply [source-ref]",
 	Short: "Apply a preset from a config bundle",
 	Long: `Apply a preset from a registered config bundle to a project.
 
 The source-ref may be either a registered source ID or a unique source name.
-In interactive terminals, omitting --preset opens a guided preset selection flow.
+When omitted in interactive mode, the command prompts for source and preset selection.
 
 Examples:
 	  oc bundle apply qbic --preset default
 	  oc bundle apply qbic
 	  oc bundle apply abc12345 --version v1.2.3 --preset default
 	  oc bundle apply qbic --preset minimal --project-root ./myproject
-	  oc bundle apply qbic --auto --preset default --force`,
-	Args: cobra.ExactArgs(1),
+	  oc bundle apply qbic --auto --preset default --force
+	  oc bundle apply (interactive mode)`,
+	Args: cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runBundleApply(args[0])
+		if len(args) > 0 {
+			return runBundleApply(args[0], false)
+		}
+		// No arguments provided - enter interactive mode
+		if !bundleInputIsTTY() || bundleAuto {
+			return fmt.Errorf("source-ref is required in non-interactive mode or when using --auto flag")
+		}
+		// Interactive source and preset selection
+		sourceRef, err := promptForSourceSelection()
+		if err != nil {
+			return err
+		}
+		return runBundleApply(sourceRef, true)
 	},
 }
 
@@ -113,7 +126,7 @@ func init() {
 	bundleApplyCmd.Flags().StringVar(&bundleVersion, "version", "", "Bundle version/tag to apply for github-release sources")
 	bundleApplyCmd.Flags().StringVar(&bundleProjectRoot, "project-root", ".", "Project root directory")
 	bundleApplyCmd.Flags().StringVar(&bundleOutput, "output", "opencode.json", "Output file path")
-	bundleApplyCmd.Flags().BoolVar(&bundleAuto, "auto", false, "Disable interactive preset selection")
+	bundleApplyCmd.Flags().BoolVar(&bundleAuto, "auto", false, "Run in non-interactive mode (requires source-ref and --preset)")
 	bundleApplyCmd.Flags().BoolVar(&bundleForce, "force", false, "Overwrite existing files")
 	bundleApplyCmd.Flags().BoolVar(&bundleDryRun, "dry-run", false, "Show what would be done without doing it")
 	bundleApplyCmd.ValidArgsFunction = completeSourceRefs
@@ -127,7 +140,7 @@ func init() {
 	bundleUpdateCmd.Flags().BoolVar(&bundleYes, "yes", false, "Skip confirmation prompt")
 }
 
-func runBundleApply(sourceRef string) error {
+func runBundleApply(sourceRef string, interactivePreset bool) error {
 	// Resolve project root
 	projectRoot, err := filepath.Abs(bundleProjectRoot)
 	if err != nil {
@@ -171,7 +184,7 @@ func runBundleApply(sourceRef string) error {
 
 	selectedPreset := bundlePreset
 	if selectedPreset == "" {
-		if bundleAuto || !bundleInputIsTTY() {
+		if bundleAuto || (!interactivePreset && !bundleInputIsTTY()) {
 			return fmt.Errorf("--preset is required outside interactive mode")
 		}
 		selectedPreset, err = promptForPresetSelection(manifest)
@@ -330,6 +343,59 @@ func promptForPresetSelection(manifest *bundle.Manifest) (string, error) {
 		}
 
 		fmt.Fprintln(bundlePromptOut, "Invalid selection. Please enter a preset number or exact name.")
+	}
+}
+
+func promptForSourceSelection() (string, error) {
+	sources, err := source.ListSources()
+	if err != nil {
+		return "", fmt.Errorf("failed to list sources: %w", err)
+	}
+
+	if len(sources) == 0 {
+		return "", fmt.Errorf("no sources registered (run 'oc bundle source add <location>' to register a source)")
+	}
+
+	reader := bufio.NewReader(bundlePromptIn)
+	for {
+		fmt.Fprintln(bundlePromptOut, "Available sources:")
+		for i, src := range sources {
+			fmt.Fprintf(bundlePromptOut, "  %d) %s (%s) - %s\n", i+1, src.ID, src.Type, src.Name)
+		}
+		fmt.Fprint(bundlePromptOut, "Select a source: ")
+
+		selection, err := reader.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				return "", fmt.Errorf("interactive source selection cancelled")
+			}
+			return "", fmt.Errorf("failed to read source selection: %w", err)
+		}
+
+		selection = strings.TrimSpace(selection)
+
+		// First check for exact name match
+		for _, src := range sources {
+			if src.Name == selection {
+				return src.ID, nil
+			}
+		}
+
+		// Then check for exact ID match
+		for _, src := range sources {
+			if src.ID == selection {
+				return src.ID, nil
+			}
+		}
+
+		// Finally check for index
+		if index, err := strconv.Atoi(selection); err == nil {
+			if index >= 1 && index <= len(sources) {
+				return sources[index-1].ID, nil
+			}
+		}
+
+		fmt.Fprintln(bundlePromptOut, "Invalid selection. Please enter a source number, ID, or name.")
 	}
 }
 
