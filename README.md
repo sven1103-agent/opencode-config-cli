@@ -8,6 +8,13 @@
 
 **Manage OpenCode configuration bundles and schema-validated multi-agent workflows**
 
+## CLI Demo
+
+![CLI demo](docs/demo.svg)
+
+Source recording: [docs/demo.cast](docs/demo.cast)  
+Repeatable capture steps: [docs/demo-playbook.md](docs/demo-playbook.md)
+
 ## What is this?
 
 A CLI tool (`oc`) that manages OpenCode [configuration bundles](docs/config-bundles.md) from external sources, enabling versioned, validated configs for AI agents.

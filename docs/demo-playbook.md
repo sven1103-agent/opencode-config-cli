@@ -75,14 +75,15 @@ Recommended tools:
 
 - `asciinema` for terminal capture
 - `agg` or an equivalent renderer for README-ready GIF output
+- `scripts/record-demo.sh` in this repo for the current committed capture flow
 
 Example capture flow:
 
 ```sh
-asciinema rec docs/demo.cast
-# run the demo commands
-agg docs/demo.cast docs/demo.gif
+scripts/record-demo.sh
 ```
+
+This script builds the CLI, records `docs/demo.cast`, and renders `docs/demo.svg` from the same source session.
 
 Keep the `.cast` file as the source artifact so the README asset can be re-rendered for later releases without inventing a new script.
 
