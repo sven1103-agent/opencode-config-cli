@@ -8,6 +8,13 @@
 
 **Manage OpenCode configuration bundles and schema-validated multi-agent workflows**
 
+## CLI Demo
+
+![CLI demo](docs/demo.gif)
+
+Source tape: [docs/demo.tape](docs/demo.tape)  
+Repeatable capture steps: [docs/demo-playbook.md](docs/demo-playbook.md)
+
 ## What is this?
 
 A CLI tool (`oc`) that manages OpenCode [configuration bundles](docs/config-bundles.md) from external sources, enabling versioned, validated configs for AI agents.
@@ -81,6 +88,7 @@ Run `oc completion --help` for full instructions.
 | [docs/README.md](docs/README.md) | User documentation hub |
 | [docs/installation.md](docs/installation.md) | Install on macOS/Linux |
 | [docs/config-bundles.md](docs/config-bundles.md) | Understand bundles + create your own |
+| [docs/demo-playbook.md](docs/demo-playbook.md) | Repeatable terminal demo script for README recordings |
 | [docs/cli-reference.md](docs/cli-reference.md) | Full command reference |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | FAQ and common issues |
 
