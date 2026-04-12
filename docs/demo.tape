@@ -37,9 +37,6 @@ Enter
 Sleep 2600ms
 Type "1"
 Enter
-Sleep 3200ms
-Type "1"
-Enter
 Sleep 1.5s
 
 Type "oc bundle status --project-root demo-project"
