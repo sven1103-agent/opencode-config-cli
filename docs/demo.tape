@@ -45,4 +45,4 @@ Sleep 1.2s
 
 Type "tree -a demo-project"
 Enter
-Sleep 2s
+Sleep 5s
